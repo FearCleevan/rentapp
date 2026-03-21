@@ -1,0 +1,294 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.4.2
+2 info using node@v22.17.0
+3 silly config load:file:C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\FearCleevan\Desktop\Projects\rentapp\.npmrc
+5 silly config load:file:C:\Users\FearCleevan\.npmrc
+6 silly config load:file:C:\Users\FearCleevan\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install react@19.1.0
+8 verbose argv "install" "react@19.1.0" "--save-exact"
+9 verbose logfile logs-max:10 dir:C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-21T08_33_09_040Z-
+10 verbose logfile C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-21T08_33_09_040Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest react@19.1.0
+15 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/npm 911ms
+17 http fetch GET 200 https://registry.npmjs.org/react 565ms (cache miss)
+18 silly packumentCache full:https://registry.npmjs.org/react set size:undefined disposed:false
+19 silly placeDep ROOT react@19.1.0 REPLACE for: rentapp@1.0.0 want: 19.1.0
+20 warn ERESOLVE overriding peer dependency {
+20 warn ERESOLVE   code: 'ERESOLVE',
+20 warn ERESOLVE   edge: {
+20 warn ERESOLVE     type: 'peer',
+20 warn ERESOLVE     name: 'react',
+20 warn ERESOLVE     spec: '^16.5.1 || ^17.0.0 || ^18.0.0',
+20 warn ERESOLVE     from: {
+20 warn ERESOLVE       name: 'lucide-react-native',
+20 warn ERESOLVE       version: '0.378.0',
+20 warn ERESOLVE       location: 'node_modules/lucide-react-native',
+20 warn ERESOLVE       isWorkspace: false,
+20 warn ERESOLVE       dependents: [Array]
+20 warn ERESOLVE     }
+20 warn ERESOLVE   },
+20 warn ERESOLVE   dep: {
+20 warn ERESOLVE     name: 'react',
+20 warn ERESOLVE     version: '19.1.0',
+20 warn ERESOLVE     whileInstalling: {
+20 warn ERESOLVE       name: 'rentapp',
+20 warn ERESOLVE       version: '1.0.0',
+20 warn ERESOLVE       path: 'C:\\Users\\FearCleevan\\Desktop\\Projects\\rentapp'
+20 warn ERESOLVE     },
+20 warn ERESOLVE     location: 'node_modules/react',
+20 warn ERESOLVE     isWorkspace: false,
+20 warn ERESOLVE     dependents: [ [Object] ]
+20 warn ERESOLVE   },
+20 warn ERESOLVE   force: false,
+20 warn ERESOLVE   isMine: true,
+20 warn ERESOLVE   strictPeerDeps: false,
+20 warn ERESOLVE   current: {
+20 warn ERESOLVE     name: 'react',
+20 warn ERESOLVE     version: '18.2.0',
+20 warn ERESOLVE     location: 'node_modules/react',
+20 warn ERESOLVE     isWorkspace: false,
+20 warn ERESOLVE     dependents: [
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object], [Object], [Object],
+20 warn ERESOLVE       [Object], [Object], [Object]
+20 warn ERESOLVE     ]
+20 warn ERESOLVE   }
+20 warn ERESOLVE }
+21 silly fetch manifest react-dom@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+22 silly packumentCache full:https://registry.npmjs.org/react-dom cache-miss
+23 http fetch GET 200 https://registry.npmjs.org/react-dom 202ms (cache miss)
+24 silly packumentCache full:https://registry.npmjs.org/react-dom set size:undefined disposed:false
+25 silly fetch manifest react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+26 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+27 http cache https://registry.npmjs.org/react 26ms (cache hit)
+28 silly packumentCache full:https://registry.npmjs.org/react set size:6555426 disposed:false
+29 silly placeDep ROOT react-dom@19.2.4 CONFLICT for: @radix-ui/react-collection@1.1.7 want: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+30 warn ERESOLVE overriding peer dependency {
+30 warn ERESOLVE   code: 'ERESOLVE',
+30 warn ERESOLVE   edge: {
+30 warn ERESOLVE     type: 'peer',
+30 warn ERESOLVE     name: 'react',
+30 warn ERESOLVE     spec: '^19.2.4',
+30 warn ERESOLVE     error: 'INVALID',
+30 warn ERESOLVE     from: {
+30 warn ERESOLVE       name: 'react-dom',
+30 warn ERESOLVE       version: '19.2.4',
+30 warn ERESOLVE       location: 'node_modules/react-dom',
+30 warn ERESOLVE       isWorkspace: false,
+30 warn ERESOLVE       dependents: [Array]
+30 warn ERESOLVE     }
+30 warn ERESOLVE   },
+30 warn ERESOLVE   dep: {
+30 warn ERESOLVE     name: 'react',
+30 warn ERESOLVE     version: '19.2.4',
+30 warn ERESOLVE     whileInstalling: {
+30 warn ERESOLVE       name: '@radix-ui/react-collection',
+30 warn ERESOLVE       version: '1.1.7',
+30 warn ERESOLVE       path: 'C:\\Users\\FearCleevan\\Desktop\\Projects\\rentapp\\node_modules\\@radix-ui\\react-collection'
+30 warn ERESOLVE     },
+30 warn ERESOLVE     location: 'node_modules/react',
+30 warn ERESOLVE     isWorkspace: false,
+30 warn ERESOLVE     dependents: [ [Object] ]
+30 warn ERESOLVE   },
+30 warn ERESOLVE   force: false,
+30 warn ERESOLVE   isMine: false,
+30 warn ERESOLVE   strictPeerDeps: false,
+30 warn ERESOLVE   current: {
+30 warn ERESOLVE     name: 'react',
+30 warn ERESOLVE     version: '19.1.0',
+30 warn ERESOLVE     location: 'node_modules/react',
+30 warn ERESOLVE     isWorkspace: false,
+30 warn ERESOLVE     dependents: [ [Object] ]
+30 warn ERESOLVE   },
+30 warn ERESOLVE   peerConflict: {
+30 warn ERESOLVE     name: 'react',
+30 warn ERESOLVE     version: '19.1.0',
+30 warn ERESOLVE     location: 'node_modules/react',
+30 warn ERESOLVE     isWorkspace: false,
+30 warn ERESOLVE     dependents: [ [Object] ]
+30 warn ERESOLVE   }
+30 warn ERESOLVE }
+31 silly fetch manifest react@^19.2.4
+32 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+33 silly fetch manifest scheduler@^0.27.0
+34 silly packumentCache full:https://registry.npmjs.org/scheduler cache-miss
+35 http cache https://registry.npmjs.org/react 14ms (cache hit)
+36 silly packumentCache full:https://registry.npmjs.org/react set size:6555426 disposed:false
+37 http fetch GET 200 https://registry.npmjs.org/scheduler 128ms (cache miss)
+38 silly packumentCache full:https://registry.npmjs.org/scheduler set size:undefined disposed:false
+39 silly fetch manifest @types/react@^19.1.0
+40 silly packumentCache full:https://registry.npmjs.org/@types%2freact cache-miss
+41 http fetch GET 200 https://registry.npmjs.org/@types%2freact 104ms (cache miss)
+42 silly packumentCache full:https://registry.npmjs.org/@types%2freact set size:undefined disposed:false
+43 warn ERESOLVE overriding peer dependency {
+43 warn ERESOLVE   code: 'ERESOLVE',
+43 warn ERESOLVE   edge: {
+43 warn ERESOLVE     type: 'peerOptional',
+43 warn ERESOLVE     name: '@types/react',
+43 warn ERESOLVE     spec: '^19.1.0',
+43 warn ERESOLVE     error: 'INVALID',
+43 warn ERESOLVE     from: {
+43 warn ERESOLVE       name: '@react-native/virtualized-lists',
+43 warn ERESOLVE       version: '0.81.5',
+43 warn ERESOLVE       location: 'node_modules/@react-native/virtualized-lists',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     }
+43 warn ERESOLVE   },
+43 warn ERESOLVE   dep: {
+43 warn ERESOLVE     name: '@types/react',
+43 warn ERESOLVE     version: '19.2.14',
+43 warn ERESOLVE     whileInstalling: {
+43 warn ERESOLVE       name: '@react-native/virtualized-lists',
+43 warn ERESOLVE       version: '0.81.5',
+43 warn ERESOLVE       path: 'C:\\Users\\FearCleevan\\Desktop\\Projects\\rentapp\\node_modules\\@react-native\\virtualized-lists'
+43 warn ERESOLVE     },
+43 warn ERESOLVE     location: 'node_modules/@types/react',
+43 warn ERESOLVE     isWorkspace: false,
+43 warn ERESOLVE     dependents: [ [Object] ]
+43 warn ERESOLVE   },
+43 warn ERESOLVE   force: false,
+43 warn ERESOLVE   isMine: false,
+43 warn ERESOLVE   strictPeerDeps: false,
+43 warn ERESOLVE   current: {
+43 warn ERESOLVE     name: '@types/react',
+43 warn ERESOLVE     version: '18.3.28',
+43 warn ERESOLVE     location: 'node_modules/@types/react',
+43 warn ERESOLVE     isWorkspace: false,
+43 warn ERESOLVE     dependents: [
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object], [Object],
+43 warn ERESOLVE       [Object], [Object]
+43 warn ERESOLVE     ]
+43 warn ERESOLVE   },
+43 warn ERESOLVE   peerConflict: {
+43 warn ERESOLVE     current: {
+43 warn ERESOLVE       name: '@types/react',
+43 warn ERESOLVE       version: '18.3.28',
+43 warn ERESOLVE       location: 'node_modules/@types/react',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     },
+43 warn ERESOLVE     peer: {
+43 warn ERESOLVE       name: '@types/react',
+43 warn ERESOLVE       version: '19.2.14',
+43 warn ERESOLVE       whileInstalling: [Object],
+43 warn ERESOLVE       location: 'node_modules/@types/react',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     }
+43 warn ERESOLVE   }
+43 warn ERESOLVE }
+44 silly fetch manifest tailwindcss@>3.3.0
+45 silly packumentCache full:https://registry.npmjs.org/tailwindcss cache-miss
+46 http fetch GET 200 https://registry.npmjs.org/tailwindcss 145ms (cache miss)
+47 silly packumentCache full:https://registry.npmjs.org/tailwindcss set size:undefined disposed:false
+48 silly placeDep ROOT tailwindcss@4.2.2 OK for: nativewind@4.2.3 want: >3.3.0
+49 silly placeDep node_modules/react-dom scheduler@0.27.0 OK for: react-dom@19.2.4 want: ^0.27.0
+50 verbose stack Error: could not resolve
+50 verbose stack     at PlaceDep.failPeerConflict (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\place-dep.js:503:25)
+50 verbose stack     at new PlaceDep (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\place-dep.js:157:21)
+50 verbose stack     at #buildDepStep (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:931:18)
+50 verbose stack     at async Arborist.buildIdealTree (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:182:7)
+50 verbose stack     at async Promise.all (index 1)
+50 verbose stack     at async Arborist.reify (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:131:5)
+50 verbose stack     at async Install.exec (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\commands\install.js:149:5)
+50 verbose stack     at async Npm.exec (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\npm.js:208:9)
+50 verbose stack     at async module.exports (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\cli\entry.js:67:5)
+51 error code ERESOLVE
+52 error ERESOLVE could not resolve
+53 error
+54 error While resolving: react-native@0.81.5
+54 error Found: @types/react@18.3.28
+54 error node_modules/@types/react
+54 error   peerOptional @types/react@"*" from @gorhom/bottom-sheet@4.6.4
+54 error   node_modules/@gorhom/bottom-sheet
+54 error     @gorhom/bottom-sheet@"^4.6.1" from the root project
+54 error   peerOptional @types/react@"*" from @radix-ui/react-collection@1.1.7
+54 error   node_modules/@radix-ui/react-collection
+54 error     @radix-ui/react-collection@"1.1.7" from @radix-ui/react-roving-focus@1.1.11
+54 error     node_modules/@radix-ui/react-roving-focus
+54 error       @radix-ui/react-roving-focus@"1.1.11" from @radix-ui/react-tabs@1.1.13
+54 error       node_modules/@radix-ui/react-tabs
+54 error         @radix-ui/react-tabs@"^1.1.12" from expo-router@6.0.23
+54 error         node_modules/expo-router
+54 error   30 more (@radix-ui/react-slot, @radix-ui/react-compose-refs, ...)
+54 error
+54 error Could not resolve dependency:
+54 error peerOptional @types/react@"^19.1.0" from react-native@0.81.5
+54 error node_modules/react-native
+54 error   peerOptional react-native@"*" from @expo/cli@54.0.23
+54 error   node_modules/@expo/cli
+54 error     @expo/cli@"54.0.23" from expo@54.0.33
+54 error   peerOptional react-native@"*" from @expo/devtools@0.1.8
+54 error   node_modules/@expo/devtools
+54 error     @expo/devtools@"0.1.8" from expo@54.0.33
+54 error     node_modules/expo
+54 error       peer expo@"*" from @expo/cli@54.0.23
+54 error       node_modules/@expo/cli
+54 error       20 more (@expo/metro-config, @expo/metro-runtime, ...)
+54 error   34 more (@expo/metro-runtime, @expo/vector-icons, ...)
+54 error
+54 error Conflicting peer dependency: @types/react@19.2.14
+54 error node_modules/@types/react
+54 error   peerOptional @types/react@"^19.1.0" from react-native@0.81.5
+54 error   node_modules/react-native
+54 error     peerOptional react-native@"*" from @expo/cli@54.0.23
+54 error     node_modules/@expo/cli
+54 error       @expo/cli@"54.0.23" from expo@54.0.33
+54 error     peerOptional react-native@"*" from @expo/devtools@0.1.8
+54 error     node_modules/@expo/devtools
+54 error       @expo/devtools@"0.1.8" from expo@54.0.33
+54 error       node_modules/expo
+54 error         peer expo@"*" from @expo/cli@54.0.23
+54 error         node_modules/@expo/cli
+54 error         20 more (@expo/metro-config, @expo/metro-runtime, ...)
+54 error     34 more (@expo/metro-runtime, @expo/vector-icons, ...)
+54 error
+54 error Fix the upstream dependency conflict, or retry
+54 error this command with --force or --legacy-peer-deps
+54 error to accept an incorrect (and potentially broken) dependency resolution.
+55 error
+55 error
+55 error For a full report see:
+55 error C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-21T08_33_09_040Z-eresolve-report.txt
+56 silly unfinished npm timer reify 1774081989589
+57 silly unfinished npm timer reify:loadTrees 1774081989591
+58 silly unfinished npm timer idealTree:buildDeps 1774081989990
+59 silly unfinished npm timer idealTree:node_modules/react-native 1774081991617
+60 verbose cwd C:\Users\FearCleevan\Desktop\Projects\rentapp
+61 verbose os Windows_NT 10.0.26200
+62 verbose node v22.17.0
+63 verbose npm  v11.4.2
+64 notice
+64 notice New minor version of npm available! 11.4.2 -> 11.12.0
+64 notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+64 notice To update run: npm install -g npm@11.12.0
+64 notice  { force: true, [Symbol(proc-log.meta)]: true }
+65 verbose exit 1
+66 verbose code 1
+67 error A complete log of this run can be found in: C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-21T08_33_09_040Z-debug-0.log
