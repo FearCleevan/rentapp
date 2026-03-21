@@ -1,22 +1,18 @@
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { AppText } from '@/components/ui/AppText';
 import { Colors, Spacing } from '@/constants/theme';
 
-export default function HostScreen() {
+export default function BookingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.center}>
-        <View style={[styles.iconWrap, { backgroundColor: Colors.primaryLight }]}>
-          <MaterialCommunityIcons
-            name="home-plus-outline"
-            size={32}
-            color={Colors.primary}
-          />
+        <View style={[styles.iconWrap, { backgroundColor: '#EEF2FF' }]}>
+          <Feather name="calendar" size={32} color="#534AB7" />
         </View>
         <AppText variant="h2" weight="extrabold" center>
-          Host Dashboard
+          My Bookings
         </AppText>
         <AppText
           variant="body"
@@ -24,7 +20,7 @@ export default function HostScreen() {
           center
           style={{ marginTop: Spacing.sm, maxWidth: 260 }}
         >
-          List your space, car, or equipment and start earning today.
+          Your upcoming and past rentals will appear here.
         </AppText>
         <AppText
           variant="caption"
@@ -32,7 +28,7 @@ export default function HostScreen() {
           center
           style={{ marginTop: Spacing.lg }}
         >
-          Host dashboard coming next!
+          Full bookings screen coming next!
         </AppText>
       </View>
     </SafeAreaView>

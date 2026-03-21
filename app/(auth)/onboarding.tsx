@@ -6,14 +6,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import Svg, { Circle, Rect, Path, Polygon } from 'react-native-svg';
+import Svg, { Circle, Rect, Path, Ellipse, G, Polygon } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { AppText }   from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { Colors, Spacing, Radius } from '@/constants/theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // ─── Slide illustrations (pure SVG — no external images needed) ───────────────
 
