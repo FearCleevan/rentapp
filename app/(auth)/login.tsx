@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
-  ScrollView, Platform,
+  ScrollView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,7 +15,7 @@ import { AppText }   from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppInput }  from '@/components/ui/AppInput';
 import { useToast }  from '@/components/ui/Toast';
-import { signInWithEmail } from '@/lib/supabase';
+import { signInWithEmail, supabase } from '@/lib/supabase';
 import { Colors, Spacing, Radius } from '@/constants/theme';
 
 // ─── Validation schema ────────────────────────────────────────────────────────
@@ -32,25 +32,125 @@ export default function LoginScreen() {
   const router = useRouter();
   const toast  = useToast();
   const [loading, setLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, formState: { errors }, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   });
 
   async function onSubmit(data: FormData) {
     setLoading(true);
-    const { error } = await signInWithEmail(data.email, data.password);
-    setLoading(false);
-
-    if (error) {
-      const msg = error.message.includes('Invalid login credentials')
-        ? 'Wrong email or password. Please try again.'
-        : error.message;
-      toast.show(msg, 'error');
+    
+    try {
+      // First, check if the user exists and is verified
+      const { data: userData, error: userError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+      
+      if (userError) {
+        // Check if the error is due to unverified email
+        if (userError.message.toLowerCase().includes('email not confirmed') ||
+            userError.message.toLowerCase().includes('verify')) {
+          toast.show(
+            'Please verify your email address before logging in. Check your inbox for the confirmation link.',
+            'error'
+          );
+          
+          // Show resend verification option
+          Alert.alert(
+            'Email Not Verified',
+            'Please check your email inbox for the verification link. Would you like us to resend the verification email?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Resend Email', 
+                onPress: () => resendVerificationEmail(data.email),
+                style: 'default'
+              },
+            ]
+          );
+          return;
+        }
+        
+        // Other authentication errors
+        const msg = userError.message.includes('Invalid login credentials')
+          ? 'Wrong email or password. Please try again.'
+          : userError.message;
+        toast.show(msg, 'error');
+        return;
+      }
+      
+      // Check if the user's email is confirmed
+      if (userData.user && !userData.user.email_confirmed_at) {
+        toast.show(
+          'Please verify your email address before logging in. Check your inbox for the confirmation link.',
+          'error',
+        );
+        
+        // Sign out immediately since they can't login without verification
+        await supabase.auth.signOut();
+        
+        Alert.alert(
+          'Email Verification Required',
+          `We've sent a verification link to ${data.email}. Please check your inbox and verify your email before logging in.`,
+          [
+            { text: 'OK', style: 'default' },
+            { 
+              text: 'Resend Email', 
+              onPress: () => resendVerificationEmail(data.email),
+              style: 'default'
+            },
+          ]
+        );
+        return;
+      }
+      
+      // Successfully logged in with verified email
+      toast.show('Welcome back!', 'success');
+      // Auth guard in _layout.tsx handles redirect automatically
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.show('An unexpected error occurred. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  // Function to resend verification email
+  async function resendVerificationEmail(email: string) {
+    if (!email) {
+      toast.show('Please enter your email address first.', 'error');
       return;
     }
-    // Auth guard in _layout.tsx handles redirect automatically
+    
+    setResendingEmail(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'rentapp://login',
+        },
+      });
+      
+      if (error) {
+        toast.show('Failed to resend verification email. Please try again.', 'error');
+        return;
+      }
+      
+      toast.show(
+        `Verification email resent to ${email}. Please check your inbox.`,
+        'success',
+      );
+    } catch (err) {
+      console.error('Resend error:', err);
+      toast.show('An error occurred. Please try again.', 'error');
+    } finally {
+      setResendingEmail(false);
+    }
   }
 
   function handleGoogleLogin() {
@@ -174,7 +274,7 @@ export default function LoginScreen() {
 
             {/* Forgot password */}
             <TouchableOpacity
-              onPress={() => router.push('/(auth)/forgot')}
+              onPress={() => router.push('/forgot')}
               style={styles.forgotBtn}
             >
               <AppText variant="label" weight="semibold" color={Colors.primary}>
@@ -215,7 +315,7 @@ export default function LoginScreen() {
             style={styles.signupRow}
           >
             <AppText variant="label" color={Colors.muted}>Don't have an account?{'  '}</AppText>
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+            <TouchableOpacity onPress={() => router.push('/register')}>
               <AppText variant="label" weight="bold" color={Colors.primary}>Sign up free</AppText>
             </TouchableOpacity>
           </MotiView>
@@ -224,6 +324,15 @@ export default function LoginScreen() {
           <AppText variant="caption" center color={Colors.subtle} style={styles.legal}>
             By continuing, you agree to our Terms of Service and Privacy Policy.
           </AppText>
+          
+          {/* Resend loading indicator */}
+          {resendingEmail && (
+            <View style={styles.resendIndicator}>
+              <AppText variant="caption" color={Colors.teal}>
+                Sending verification email...
+              </AppText>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -312,5 +421,9 @@ const styles = StyleSheet.create({
   legal: {
     marginTop:        Spacing.lg,
     paddingHorizontal: Spacing.lg,
+  },
+  resendIndicator: {
+    marginTop: Spacing.md,
+    alignItems: 'center',
   },
 });

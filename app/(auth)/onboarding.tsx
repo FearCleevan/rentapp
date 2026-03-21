@@ -157,12 +157,12 @@ export default function OnboardingScreen() {
       scrollRef.current?.scrollTo({ x: width * (current + 1), animated: true });
       setCurrent(current + 1);
     } else {
-      router.push('/(auth)/login');
+      router.push('/login'); 
     }
   }
 
   function skip() {
-    router.push('/(auth)/login');
+    router.push('/login'); 
   }
 
   const slide = slides[current];
@@ -260,7 +260,7 @@ export default function OnboardingScreen() {
         />
 
         {current === slides.length - 1 && (
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+          <TouchableOpacity onPress={() => router.push('/register')}>
             <AppText variant="label" weight="semibold" center color={Colors.muted}>
               New here?{'  '}
               <AppText variant="label" weight="bold" color={Colors.primary}>Create a free account</AppText>

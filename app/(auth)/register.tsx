@@ -208,20 +208,23 @@ export default function RegisterScreen() {
     if (valid) setStep(2);
   }
 
-  async function onSubmit(data: FormData) {
-    if (!agreed) {
-      toast.show('Please agree to the Terms of Service to continue.', 'error');
-      return;
-    }
-    setLoading(true);
+// Update your onSubmit function in register.tsx
+
+async function onSubmit(data: FormData) {
+  if (!agreed) {
+    toast.show('Please agree to the Terms of Service to continue.', 'error');
+    return;
+  }
+  setLoading(true);
+  
+  try {
     const { error } = await signUpWithEmail(
       data.email,
       data.password,
       data.fullName,
       data.phone,
     );
-    setLoading(false);
-
+    
     if (error) {
       const msg = error.message.toLowerCase().includes('already registered')
         ? 'This email is already registered. Try logging in instead.'
@@ -230,9 +233,24 @@ export default function RegisterScreen() {
       return;
     }
 
-    toast.show('Account created! Check your email to verify.', 'success');
-    router.replace('/(auth)/login');
+    // Success! Show a more prominent success message
+    toast.show(
+      '✓ Account created successfully! Please check your email to verify your account before logging in.',
+      'success'
+    );
+    
+    // Navigate to login after a short delay to ensure toast is visible
+    setTimeout(() => {
+      router.replace('/login');
+    }, 2000);
+    
+  } catch (err) {
+    console.error('Registration error:', err);
+    toast.show('An unexpected error occurred. Please try again.', 'error');
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -374,7 +392,7 @@ export default function RegisterScreen() {
                 <AppText variant="label" color={Colors.muted}>
                   Already have an account?{'  '}
                 </AppText>
-                <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+                <TouchableOpacity onPress={() => router.push('/login')}>
                   <AppText variant="label" weight="bold" color={Colors.primary}>
                     Log in
                   </AppText>
