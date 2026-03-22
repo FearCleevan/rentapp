@@ -1,3 +1,4 @@
+//app/(auth)/onboarding.tsx
 import { useState, useRef } from 'react';
 import {
   View, StyleSheet, Dimensions, ScrollView,

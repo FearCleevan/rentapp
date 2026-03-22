@@ -1,3 +1,4 @@
+//components/ui/AppButton.tsx
 import { TouchableOpacity, ActivityIndicator, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
 import { AppText } from './AppText';
 import { Colors, Radius, Spacing } from '@/constants/theme';

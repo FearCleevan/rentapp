@@ -1,3 +1,4 @@
+//app/(auth)/forgot.tsx
 import { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity,

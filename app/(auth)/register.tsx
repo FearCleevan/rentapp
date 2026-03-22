@@ -1,3 +1,4 @@
+//app/(auth)/register.tsx
 import { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, KeyboardAvoidingView,

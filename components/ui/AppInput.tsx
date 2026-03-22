@@ -1,3 +1,4 @@
+//components/ui/AppInput.tsx
 import { useState } from 'react';
 import {
   View, TextInput, TouchableOpacity, StyleSheet,

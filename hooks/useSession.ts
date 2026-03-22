@@ -1,3 +1,4 @@
+//hooks/useSession.ts
 import { useEffect } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase, getProfile } from '@/lib/supabase';

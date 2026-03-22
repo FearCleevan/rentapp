@@ -1,3 +1,4 @@
+//app/(tabs)/profile/index.tsx
 import { useState } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert,

@@ -1,3 +1,4 @@
+//app/(tabs)/bookings/index.tsx
 import { useState } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
