@@ -1,68 +1,60 @@
-//app/(tabs)/profile/index.tsx
-import { useState } from 'react';
+// app/(tabs)/profile/index.tsx
+import { useState, useEffect } from 'react';
 import {
-  View, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert,
+  View, ScrollView, StyleSheet, TouchableOpacity,
+  Switch, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
-import { AppText } from '@/components/ui/AppText';
-import { signOut } from '@/lib/supabase';
+
+import { AppText }    from '@/components/ui/AppText';
+import { useToast }   from '@/components/ui/Toast';
+import { signOut }    from '@/lib/supabase';
+import {
+  fetchHostEarnings,
+  fetchHostListingCount,
+  fetchRenterBookingCount,
+} from '@/lib/profileService';
+import { useProfile } from '@/hooks/useProfile';
+import { useAuthStore } from '@/store/authStore';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
-// ─── Mock profile data ────────────────────────────────────────────────────────
-
-const MOCK_PROFILE = {
-  fullName:       'Juan dela Cruz',
-  email:          'juan@example.com',
-  phone:          '+63 912 345 6789',
-  isVerified:     false,
-  memberSince:    'March 2026',
-  totalBookings:  4,
-  totalListings:  2,
-  avgRating:      4.8,
-};
-
-// ─── Settings menu items ──────────────────────────────────────────────────────
+// ─── Settings sections ────────────────────────────────────────────────────────
 
 const SETTINGS_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { icon: 'user',        label: 'Edit profile',         chevron: true  },
-      { icon: 'shield',      label: 'Verify my ID',         chevron: true, badge: 'Required' },
-      { icon: 'bell',        label: 'Notifications',        chevron: true  },
-      { icon: 'lock',        label: 'Change password',      chevron: true  },
+      { icon: 'user',           label: 'Edit profile',      chevron: true                },
+      { icon: 'shield',         label: 'Verify my ID',      chevron: true, badge: 'Required' },
+      { icon: 'bell',           label: 'Notifications',     chevron: false, isSwitch: true },
+      { icon: 'lock',           label: 'Change password',   chevron: true                },
     ],
   },
   {
     title: 'Hosting',
     items: [
-      { icon: 'home',        label: 'My listings',          chevron: true  },
-      { icon: 'dollar-sign', label: 'Payout settings',     chevron: true  },
-      { icon: 'bar-chart-2', label: 'Earnings history',    chevron: true  },
+      { icon: 'home',           label: 'My listings',       chevron: true },
+      { icon: 'dollar-sign',    label: 'Payout settings',  chevron: true },
+      { icon: 'bar-chart-2',    label: 'Earnings history', chevron: true },
     ],
   },
   {
     title: 'Support',
     items: [
-      { icon: 'help-circle', label: 'Help & FAQ',           chevron: true  },
-      { icon: 'message-circle', label: 'Contact support',  chevron: true  },
-      { icon: 'file-text',  label: 'Terms of Service',     chevron: true  },
-      { icon: 'eye-off',    label: 'Privacy Policy',       chevron: true  },
+      { icon: 'help-circle',    label: 'Help & FAQ',        chevron: true },
+      { icon: 'message-circle', label: 'Contact support',  chevron: true },
+      { icon: 'file-text',      label: 'Terms of Service', chevron: true },
+      { icon: 'eye-off',        label: 'Privacy Policy',   chevron: true },
     ],
   },
-];
+] as const;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({
-  value,
-  label,
-}: {
-  value: string | number;
-  label: string;
-}) {
+function StatCard({ value, label }: { value: string | number; label: string }) {
   return (
     <View style={styles.statCard}>
       <AppText variant="h2" weight="extrabold" center>{value}</AppText>
@@ -73,38 +65,34 @@ function StatCard({
   );
 }
 
-function SettingsItem({
-  icon,
-  label,
-  chevron,
-  badge,
-  right,
+function AvatarSection({
+  initials,
+  avatarUrl,
+  onPress,
+  uploading,
 }: {
-  icon:     string;
-  label:    string;
-  chevron?: boolean;
-  badge?:   string;
-  right?:   React.ReactNode;
+  initials:  string;
+  avatarUrl: string | null;
+  onPress:   () => void;
+  uploading: boolean;
 }) {
   return (
-    <TouchableOpacity style={styles.settingsItem} activeOpacity={0.7}>
-      <View style={styles.settingsIcon}>
-        <Feather name={icon as any} size={16} color={Colors.muted} />
+    <TouchableOpacity onPress={onPress} style={styles.avatar} activeOpacity={0.85}>
+      {uploading ? (
+        <ActivityIndicator color={Colors.white} />
+      ) : avatarUrl ? (
+        // When you add expo-image later, swap this for <Image source={{ uri: avatarUrl }} />
+        <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
+          {initials}
+        </AppText>
+      ) : (
+        <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
+          {initials}
+        </AppText>
+      )}
+      <View style={styles.editAvatarBtn}>
+        <Feather name="camera" size={12} color={Colors.white} />
       </View>
-      <AppText variant="label" weight="medium" style={{ flex: 1, marginLeft: Spacing.md }}>
-        {label}
-      </AppText>
-      {badge && (
-        <View style={styles.requiredBadge}>
-          <AppText variant="caption" weight="bold" color={Colors.primary}>
-            {badge}
-          </AppText>
-        </View>
-      )}
-      {right}
-      {chevron && !right && (
-        <Feather name="chevron-right" size={16} color={Colors.subtle} />
-      )}
     </TouchableOpacity>
   );
 }
@@ -112,9 +100,78 @@ function SettingsItem({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const router  = useRouter();
-  const [pushEnabled, setPushEnabled] = useState(true);
+  const router    = useRouter();
+  const toast     = useToast();
+  const { reset } = useAuthStore();
+  const { profile, isUpdating, refresh, changeAvatar } = useProfile();
 
+  const [pushEnabled,    setPushEnabled]    = useState(true);
+  const [refreshing,     setRefreshing]     = useState(false);
+  const [statsLoading,   setStatsLoading]   = useState(true);
+
+  // Live stats fetched from DB (more accurate than denormalized values)
+  const [stats, setStats] = useState({
+    bookings:  0,
+    listings:  0,
+    earnings:  0,
+    rating:    0,
+  });
+
+  // ── Load live stats ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (profile?.id) loadStats();
+  }, [profile?.id]);
+
+  async function loadStats() {
+    if (!profile?.id) return;
+    setStatsLoading(true);
+    const [bookingsRes, listingsRes, earningsRes] = await Promise.all([
+      fetchRenterBookingCount(profile.id),
+      fetchHostListingCount(profile.id),
+      fetchHostEarnings(profile.id),
+    ]);
+    setStats({
+      bookings: bookingsRes.count,
+      listings: listingsRes.count,
+      earnings: earningsRes.total,
+      rating:   profile.host_rating ?? 0,
+    });
+    setStatsLoading(false);
+  }
+
+  // ── Pull to refresh ────────────────────────────────────────────────────────
+  async function handleRefresh() {
+    setRefreshing(true);
+    await Promise.all([refresh(), loadStats()]);
+    setRefreshing(false);
+  }
+
+  // ── Avatar picker ──────────────────────────────────────────────────────────
+  async function handleAvatarPress() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      toast.show('Photo library permission is required.', 'error');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect:        [1, 1],
+      quality:       0.8,
+    });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      const { error } = await changeAvatar(result.assets[0].uri);
+      if (error) {
+        toast.show('Failed to update avatar. Please try again.', 'error');
+      } else {
+        toast.show('Profile photo updated!', 'success');
+      }
+    }
+  }
+
+  // ── Sign out ───────────────────────────────────────────────────────────────
   async function handleSignOut() {
     Alert.alert(
       'Sign out',
@@ -126,10 +183,42 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             await signOut();
+            reset();
             router.replace('/login');
           },
         },
       ]
+    );
+  }
+
+  // ── Derived display values ─────────────────────────────────────────────────
+  const fullName    = profile?.full_name  ?? 'Loading…';
+  const email       = ''; // not stored in profiles — comes from auth.users
+  const initials    = fullName
+    .split(' ')
+    .map(n => n[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const isVerified  = profile?.is_verified ?? false;
+  const verifyStatus = profile?.id_verification_status ?? 'none';
+
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+    : '—';
+
+  // ── Loading skeleton ───────────────────────────────────────────────────────
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <AppText variant="body" color={Colors.muted} style={{ marginTop: Spacing.md }}>
+            Loading profile…
+          </AppText>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -138,52 +227,72 @@ export default function ProfileScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary}
+          />
+        }
       >
-        {/* ── Profile header ── */}
+
+        {/* ── Profile header card ── */}
         <View style={styles.profileHeader}>
-          {/* Avatar */}
-          <View style={styles.avatar}>
+          <AvatarSection
+            initials={initials}
+            avatarUrl={profile.avatar_url}
+            onPress={handleAvatarPress}
+            uploading={isUpdating}
+          />
+
+          <AppText
+            variant="h2"
+            weight="extrabold"
+            center
+            style={{ marginTop: Spacing.md }}
+          >
+            {fullName}
+          </AppText>
+
+          {profile.bio ? (
             <AppText
-              weight="extrabold"
-              color={Colors.white}
-              style={{ fontSize: 28 }}
+              variant="caption"
+              color={Colors.muted}
+              center
+              style={{ marginTop: 4, paddingHorizontal: Spacing.md }}
             >
-              {MOCK_PROFILE.fullName.split(' ').map(n => n[0]).join('').slice(0,2)}
+              {profile.bio}
             </AppText>
-            {/* Edit overlay */}
-            <TouchableOpacity style={styles.editAvatarBtn}>
-              <Feather name="camera" size={12} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
+          ) : null}
 
-          <AppText variant="h2" weight="extrabold" center style={{ marginTop: Spacing.md }}>
-            {MOCK_PROFILE.fullName}
-          </AppText>
-          <AppText variant="body" color={Colors.muted} center>
-            {MOCK_PROFILE.email}
-          </AppText>
-          <AppText variant="caption" color={Colors.subtle} center style={{ marginTop: 4 }}>
-            Member since {MOCK_PROFILE.memberSince}
+          <AppText
+            variant="caption"
+            color={Colors.subtle}
+            center
+            style={{ marginTop: 4 }}
+          >
+            Member since {memberSince}
           </AppText>
 
-          {/* Verification status */}
-          {!MOCK_PROFILE.isVerified ? (
+          {/* Verification banner */}
+          {!isVerified ? (
             <TouchableOpacity style={styles.verifyBanner} activeOpacity={0.85}>
               <Feather name="alert-circle" size={14} color="#854F0B" />
-              <AppText
-                variant="label"
-                weight="bold"
-                color="#854F0B"
-                style={{ marginLeft: 6 }}
-              >
-                Verify your ID to unlock full access
-              </AppText>
-              <Feather
-                name="chevron-right"
-                size={14}
-                color="#854F0B"
-                style={{ marginLeft: 4 }}
-              />
+              <View style={{ flex: 1, marginLeft: 6 }}>
+                <AppText variant="label" weight="bold" color="#854F0B">
+                  {verifyStatus === 'pending'
+                    ? 'ID verification is under review'
+                    : 'Verify your ID to unlock full access'}
+                </AppText>
+                {verifyStatus === 'none' && (
+                  <AppText variant="caption" color="#A16207">
+                    Takes only 2 minutes — gets you 3× more bookings
+                  </AppText>
+                )}
+              </View>
+              {verifyStatus === 'none' && (
+                <Feather name="chevron-right" size={14} color="#854F0B" />
+              )}
             </TouchableOpacity>
           ) : (
             <View style={styles.verifiedBanner}>
@@ -200,14 +309,33 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* ── Stats ── */}
+        {/* ── Stats row ── */}
         <View style={styles.statsRow}>
-          <StatCard value={MOCK_PROFILE.totalBookings}  label="Bookings"  />
-          <View style={styles.statDivider} />
-          <StatCard value={MOCK_PROFILE.totalListings}  label="Listings"  />
-          <View style={styles.statDivider} />
-          <StatCard value={`★${MOCK_PROFILE.avgRating}`} label="Avg rating" />
+          {statsLoading ? (
+            <ActivityIndicator color={Colors.primary} style={{ flex: 1 }} />
+          ) : (
+            <>
+              <StatCard value={stats.bookings}  label="Bookings"  />
+              <View style={styles.statDivider} />
+              <StatCard value={stats.listings}  label="Listings"  />
+              <View style={styles.statDivider} />
+              <StatCard
+                value={stats.rating > 0 ? `★${stats.rating.toFixed(1)}` : '—'}
+                label="Avg rating"
+              />
+            </>
+          )}
         </View>
+
+        {/* ── Earnings chip (only if host has earnings) ── */}
+        {stats.earnings > 0 && (
+          <View style={styles.earningsBanner}>
+            <Feather name="trending-up" size={16} color={Colors.teal} />
+            <AppText variant="label" weight="bold" color={Colors.teal} style={{ marginLeft: 6 }}>
+              Total earned: ₱{stats.earnings.toLocaleString()}
+            </AppText>
+          </View>
+        )}
 
         {/* ── Settings sections ── */}
         {SETTINGS_SECTIONS.map(section => (
@@ -224,23 +352,41 @@ export default function ProfileScreen() {
               {section.items.map((item, i) => (
                 <View key={item.label}>
                   {i > 0 && <View style={styles.itemDivider} />}
-                  <SettingsItem
-                    icon={item.icon}
-                    label={item.label}
-                    chevron={item.chevron}
-                    badge={item.badge}
-                    right={
-                      item.label === 'Notifications' ? (
-                        <Switch
-                          value={pushEnabled}
-                          onValueChange={setPushEnabled}
-                          trackColor={{ false: Colors.border, true: Colors.teal }}
-                          thumbColor={Colors.white}
-                          style={{ marginLeft: Spacing.sm }}
-                        />
-                      ) : undefined
-                    }
-                  />
+                  <TouchableOpacity
+                    style={styles.settingsItem}
+                    activeOpacity={'isSwitch' in item && item.isSwitch ? 1 : 0.7}
+                  >
+                    <View style={styles.settingsIcon}>
+                      <Feather name={item.icon as any} size={16} color={Colors.muted} />
+                    </View>
+                    <AppText
+                      variant="label"
+                      weight="medium"
+                      style={{ flex: 1, marginLeft: Spacing.md }}
+                    >
+                      {item.label}
+                    </AppText>
+
+                    {'badge' in item && item.badge && !isVerified && (
+                      <View style={styles.requiredBadge}>
+                        <AppText variant="caption" weight="bold" color={Colors.primary}>
+                          {item.badge}
+                        </AppText>
+                      </View>
+                    )}
+
+                    {'isSwitch' in item && item.isSwitch ? (
+                      <Switch
+                        value={pushEnabled}
+                        onValueChange={setPushEnabled}
+                        trackColor={{ false: Colors.border, true: Colors.teal }}
+                        thumbColor={Colors.white}
+                        style={{ marginLeft: Spacing.sm }}
+                      />
+                    ) : (
+                      <Feather name="chevron-right" size={16} color={Colors.subtle} />
+                    )}
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -272,6 +418,7 @@ export default function ProfileScreen() {
         >
           Rentapp v1.0.0
         </AppText>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -285,6 +432,11 @@ const styles = StyleSheet.create({
     padding:       Spacing.xl,
     paddingBottom: Spacing['5xl'],
     gap:           Spacing.lg,
+  },
+  loadingState: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
 
   profileHeader: {
@@ -316,16 +468,18 @@ const styles = StyleSheet.create({
     borderWidth:     2,
     borderColor:     Colors.white,
   },
+
   verifyBanner: {
     flexDirection:     'row',
     alignItems:        'center',
     backgroundColor:   '#FFFBEB',
-    borderRadius:      Radius.full,
-    paddingVertical:   8,
+    borderRadius:      Radius.md,
+    paddingVertical:   10,
     paddingHorizontal: 14,
     marginTop:         Spacing.md,
     borderWidth:       1,
     borderColor:       '#FDE68A',
+    width:             '100%',
   },
   verifiedBanner: {
     flexDirection:     'row',
@@ -342,18 +496,25 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius:    Radius.lg,
     padding:         Spacing.lg,
+    alignItems:      'center',
+    minHeight:       72,
     ...Shadow.sm,
   },
-  statCard: { flex: 1, alignItems: 'center' },
-  statDivider: {
-    width:           1,
-    backgroundColor: Colors.border,
-    marginVertical:  4,
+  statCard:    { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
+
+  earningsBanner: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: Colors.tealLight,
+    borderRadius:    Radius.md,
+    padding:         Spacing.md,
   },
 
   sectionTitle: {
-    marginBottom:    Spacing.sm,
-    paddingLeft:     Spacing.xs,
+    marginBottom: Spacing.sm,
+    paddingLeft:  Spacing.xs,
   },
   settingsCard: {
     backgroundColor: Colors.white,
