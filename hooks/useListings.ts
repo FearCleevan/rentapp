@@ -1,6 +1,4 @@
 // hooks/useListings.ts
-// Manages listings state for the Explore screen.
-// Handles loading, error, refresh, and filter changes.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -15,44 +13,60 @@ import {
 // ─── useListings ──────────────────────────────────────────────────────────────
 
 export function useListings(filters: ListingFilters) {
-  const [listings,    setListings]    = useState<ListingRow[]>([]);
-  const [isLoading,   setIsLoading]   = useState(true);
+  const [listings,     setListings]     = useState<ListingRow[]>([]);
+  const [isLoading,    setIsLoading]    = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
 
-  // Debounce ref — avoids firing a query on every keystroke
+  // Keep a ref to latest filters so load() never has a stale closure
+  const filtersRef  = useRef(filters);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef  = useRef(true);
 
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Stable load function — uses ref so never needs to be re-created
   const load = useCallback(async (refresh = false) => {
     if (refresh) setIsRefreshing(true);
     else         setIsLoading(true);
     setError(null);
 
-    const { data, error: err } = await fetchListings(filters);
+    try {
+      const { data, error: err } = await fetchListings(filtersRef.current);
+      if (!mountedRef.current) return;
 
-    if (err) {
-      setError(err.message);
-    } else {
-      setListings(data ?? []);
+      if (err) {
+        setError(err.message ?? 'Failed to load listings.');
+        setListings([]);
+      } else {
+        setListings(data ?? []);
+      }
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      setError(e?.message ?? 'Unexpected error.');
+      setListings([]);
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
+  }, []); // stable — reads filters from ref
 
-    setIsLoading(false);
-    setIsRefreshing(false);
-  }, [
-    filters.category,
-    filters.search,
-    filters.radiusKm,
-    filters.userLat,
-    filters.userLng,
-    filters.sortBy,
-    filters.sortDir,
-  ]);
-
-  // Debounce search, immediate for everything else
+  // Re-run when filters change; debounce only for search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (filters.search != null && filters.search.length > 0) {
+    const hasSearch = (filters.search ?? '').length > 0;
+
+    if (hasSearch) {
       debounceRef.current = setTimeout(() => load(), 400);
     } else {
       load();
@@ -61,7 +75,16 @@ export function useListings(filters: ListingFilters) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [load]);
+  }, [
+    filters.category,
+    filters.search,
+    filters.radiusKm,
+    filters.userLat,
+    filters.userLng,
+    filters.sortBy,
+    filters.sortDir,
+    load,
+  ]);
 
   const refresh = useCallback(() => load(true), [load]);
 
@@ -69,8 +92,6 @@ export function useListings(filters: ListingFilters) {
 }
 
 // ─── useDiscoverSections ──────────────────────────────────────────────────────
-// Fetches featured, new, and top hosts for the BannerCarousel.
-// Only runs once on mount — not reactive to filter changes.
 
 export interface DiscoverData {
   featured:  Awaited<ReturnType<typeof fetchFeaturedListings>>['data'];
@@ -82,33 +103,47 @@ export function useDiscoverSections() {
   const [data,      setData]      = useState<DiscoverData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+  const mountedRef  = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadAll();
+    return () => { mountedRef.current = false; };
   }, []);
 
   async function loadAll() {
     setIsLoading(true);
     setError(null);
 
-    const [featuredRes, newRes, hostsRes] = await Promise.all([
-      fetchFeaturedListings(6),
-      fetchNewListings(6),
-      fetchTopHosts(5),
-    ]);
+    try {
+      const [featuredRes, newRes, hostsRes] = await Promise.all([
+        fetchFeaturedListings(6),
+        fetchNewListings(6),
+        fetchTopHosts(5),
+      ]);
 
-    if (featuredRes.error || newRes.error || hostsRes.error) {
-      setError('Failed to load discover sections.');
-    } else {
+      if (!mountedRef.current) return;
+
+      // Show whatever we have — don't block all if one fails
       setData({
-        featured:  featuredRes.data,
-        newItems:  newRes.data,
-        topHosts:  hostsRes.data,
+        featured: featuredRes.data ?? [],
+        newItems: newRes.data      ?? [],
+        topHosts: hostsRes.data    ?? [],
       });
-    }
 
-    setIsLoading(false);
+      // Only set error if ALL three failed
+      if (featuredRes.error && newRes.error && hostsRes.error) {
+        setError('Failed to load discover sections.');
+      }
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      setError(e?.message ?? 'Unexpected error loading sections.');
+    } finally {
+      if (mountedRef.current) setIsLoading(false);
+    }
   }
 
-  return { data, isLoading, error, refresh: loadAll };
+  const refresh = useCallback(() => loadAll(), []);
+
+  return { data, isLoading, error, refresh };
 }
