@@ -20,16 +20,14 @@ import { Colors, PaperTheme } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-function AuthGuard({ children }: { children: React.ReactNode; }) {
+function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
-
     const inAuthGroup = segments[0] === '(auth)';
-
     if (!session && !inAuthGroup) {
       router.replace('/onboarding');
     } else if (session && inAuthGroup) {
@@ -72,10 +70,8 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <AuthGuard>
             <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)"  options={{ headerShown: false, animation: 'fade' }} />
-              <Stack.Screen name="(tabs)"  options={{ headerShown: false }} />
-              <Stack.Screen name="listing" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="booking" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+              <Stack.Screen name="(tabs)" />
             </Stack>
           </AuthGuard>
         </PaperProvider>
@@ -86,9 +82,9 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   loader: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex:            1,
+    alignItems:      'center',
+    justifyContent:  'center',
     backgroundColor: Colors.bg,
   },
 });

@@ -1,19 +1,18 @@
 import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Typography } from '@/constants/theme';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown:             false,
         tabBarActiveTintColor:   Colors.primary,
         tabBarInactiveTintColor: Colors.subtle,
         tabBarLabelStyle: {
-          fontFamily: Typography.fontFamily.semibold,
-          fontSize:   10,
+          fontFamily:   Typography.fontFamily.semibold,
+          fontSize:     10,
           marginBottom: 4,
         },
         tabBarStyle: {
@@ -25,8 +24,14 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* Hide the index redirect from the tab bar */}
       <Tabs.Screen
-        name="explore"
+        name="index"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="explore/index"
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, size }) => (
@@ -35,7 +40,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="bookings"
+        name="bookings/index"
         options={{
           title: 'Bookings',
           tabBarIcon: ({ color, size }) => (
@@ -44,7 +49,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="saved"
+        name="saved/index"
         options={{
           title: 'Saved',
           tabBarIcon: ({ color, size }) => (
@@ -53,7 +58,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="host"
+        name="host/index"
         options={{
           title: 'Host',
           tabBarIcon: ({ color, size }) => (
@@ -66,7 +71,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
