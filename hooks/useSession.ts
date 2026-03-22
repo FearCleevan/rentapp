@@ -1,15 +1,14 @@
-//hooks/useSession.ts
+// hooks/useSession.ts
 import { useEffect } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { supabase, getProfile } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
 export function useSession() {
   const { session, profile, isLoading, setSession, setProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
         hydrate(session.user.id);
@@ -18,7 +17,6 @@ export function useSession() {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
@@ -36,9 +34,25 @@ export function useSession() {
 
   async function hydrate(userId: string) {
     setLoading(true);
-    const { data } = await getProfile(userId);
-    setProfile(data);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Profile fetch error:', error.message);
+        // Profile row might not exist yet — don't block the app
+      }
+
+      setProfile(data ?? null);
+    } catch (e) {
+      console.error('Hydrate failed:', e);
+    } finally {
+      // ALWAYS stop loading — even if fetch failed
+      setLoading(false);
+    }
   }
 
   return { session, profile, isLoading };
