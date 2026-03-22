@@ -23,23 +23,21 @@ export function ExploreHeader({
 }: Props) {
   return (
     <View style={styles.container}>
-      {/* Top row: location + notif */}
+      {/* ── Row 1: Location pill + right controls ── */}
       <View style={styles.topRow}>
-        <TouchableOpacity style={styles.locationBtn} activeOpacity={0.8}>
-          <Feather name="map-pin" size={14} color={Colors.primary} />
-          <AppText variant="label" weight="bold" style={{ marginLeft: 5 }}>
+        <TouchableOpacity style={styles.locationBtn} activeOpacity={0.75}>
+          <Feather name="map-pin" size={13} color={Colors.primary} />
+          <AppText
+            variant="label"
+            weight="bold"
+            style={{ marginLeft: 5, marginRight: 2 }}
+          >
             Davao City
           </AppText>
-          <Feather
-            name="chevron-down"
-            size={14}
-            color={Colors.subtle}
-            style={{ marginLeft: 2 }}
-          />
+          <Feather name="chevron-down" size={13} color={Colors.subtle} />
         </TouchableOpacity>
 
         <View style={styles.topRight}>
-          {/* Radius indicator */}
           <View style={styles.radiusPill}>
             <Feather name="crosshair" size={11} color={Colors.primary} />
             <AppText
@@ -52,36 +50,40 @@ export function ExploreHeader({
             </AppText>
           </View>
 
-          {/* Notification bell */}
           <TouchableOpacity
             style={styles.notifBtn}
             onPress={onNotif}
-            activeOpacity={0.8}
+            activeOpacity={0.75}
           >
-            <Feather name="bell" size={20} color={Colors.ink} />
+            <Feather name="bell" size={19} color={Colors.ink} />
             <View style={styles.notifDot} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Greeting */}
+      {/* ── Row 2: Greeting ── */}
       <View style={styles.greetingRow}>
-        <AppText variant="h2" weight="extrabold" style={{ lineHeight: 28 }}>
+        <AppText variant="h2" weight="extrabold" style={styles.greetingText}>
           Find your next
         </AppText>
-        <AppText variant="h2" weight="extrabold" color={Colors.primary}>
+        <AppText
+          variant="h2"
+          weight="extrabold"
+          color={Colors.primary}
+          style={styles.greetingText}
+        >
           {' '}rental 🔍
         </AppText>
       </View>
 
-      {/* Search bar */}
+      {/* ── Row 3: Search bar ── */}
       <SearchBar
         value={search}
         onChange={onSearch}
         onFilterPress={onFilter}
       />
 
-      {/* Category pills */}
+      {/* ── Row 4: Category pills ── */}
       <CategoryPills active={category} onChange={onCategory} />
     </View>
   );
@@ -90,16 +92,17 @@ export function ExploreHeader({
 const styles = StyleSheet.create({
   container: {
     backgroundColor:   Colors.white,
-    paddingHorizontal: Spacing.xl,
-    paddingTop:        Spacing.sm,
+    paddingHorizontal: Spacing.xl,   // 20px sides — consistent with list content
+    paddingTop:        Spacing.md,   // 12px top breathing room
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+
   topRow: {
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'space-between',
-    marginBottom:   Spacing.sm,
+    marginBottom:   Spacing.sm,      // 8px below before greeting
   },
   locationBtn: {
     flexDirection:     'row',
@@ -122,21 +125,20 @@ const styles = StyleSheet.create({
     paddingVertical:   5,
     paddingHorizontal: 10,
     borderWidth:       1,
-    borderColor:       Colors.primary + '40',
+    borderColor:       Colors.primary + '35',
   },
   notifBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
+    width:           38,
+    height:          38,
+    borderRadius:    19,
     backgroundColor: Colors.bg,
     alignItems:      'center',
     justifyContent:  'center',
-    position:        'relative',
   },
   notifDot: {
     position:        'absolute',
-    top:             8,
-    right:           8,
+    top:             7,
+    right:           7,
     width:           8,
     height:          8,
     borderRadius:    4,
@@ -144,11 +146,15 @@ const styles = StyleSheet.create({
     borderWidth:     2,
     borderColor:     Colors.white,
   },
+
   greetingRow: {
     flexDirection: 'row',
     flexWrap:      'wrap',
     alignItems:    'center',
-    marginBottom:  Spacing.md,
-    marginTop:     Spacing.xs,
+    marginBottom:  Spacing.md,      // 12px below greeting before search
+    marginTop:     Spacing.xs,      // 4px above — small but intentional
+  },
+  greetingText: {
+    lineHeight: 30,
   },
 });
