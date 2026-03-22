@@ -1,18 +1,17 @@
 // app/(tabs)/explore/index.tsx
 import { useState, useCallback } from 'react';
 import {
-  View, FlatList, StyleSheet, TouchableOpacity,
-  Dimensions, TextInput,
+  View, FlatList, StyleSheet, TouchableOpacity, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-import { AppText } from '@/components/ui/AppText';
+import { AppText }            from '@/components/ui/AppText';
+import { ExploreHeader }      from '@/components/explore/ExploreHeader';
 import { BannerCarousel }     from '@/components/explore/BannerCarousel';
 import { ListingCard }        from '@/components/explore/ListingCard';
 import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
 import { RadiusFilterSheet }  from '@/components/explore/RadiusFilterSheet';
-import { CategoryPills }      from '@/components/explore/CategoryPills';
 
 import {
   LISTINGS,
@@ -25,21 +24,18 @@ import { Colors, Spacing, Radius } from '@/constants/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_GAP = Spacing.sm;
-const CARD_W   = (SCREEN_W - Spacing.xl * 2 - CARD_GAP) / 2;
 
 const USER_LAT = 7.0831;
 const USER_LNG = 125.6026;
 
 export default function ExploreScreen() {
-  const [search,          setSearch]         = useState('');
-  const [category,        setCategory]       = useState<Category>('all');
-  const [radiusKm,        setRadiusKm]       = useState(5);
-  const [saved,           setSaved]          = useState<Set<string>>(new Set());
-  const [selectedListing, setSelected]       = useState<Listing | null>(null);
-  const [filterVisible,   setFilterVisible]  = useState(false);
-  const [searchFocused,   setSearchFocused]  = useState(false);
+  const [search,          setSearch]        = useState('');
+  const [category,        setCategory]      = useState<Category>('all');
+  const [radiusKm,        setRadiusKm]      = useState(5);
+  const [saved,           setSaved]         = useState<Set<string>>(new Set());
+  const [selectedListing, setSelected]      = useState<Listing | null>(null);
+  const [filterVisible,   setFilterVisible] = useState(false);
 
-  // Pending filter (only applied on "Apply")
   const [pendingRadius,   setPendingRadius]   = useState(5);
   const [pendingCategory, setPendingCategory] = useState<Category>('all');
 
@@ -75,67 +71,40 @@ export default function ExploreScreen() {
     setFilterVisible(false);
   }
 
-  // ── Sticky top bar (minimal — Discover title is inside BannerCarousel) ──────
-  const StickyBar = useCallback(() => (
-    <View style={styles.stickyBar}>
-      {/* Search input */}
-      <View style={[
-        styles.searchBar,
-        searchFocused && styles.searchBarFocused,
-      ]}>
-        <Feather name="search" size={16} color={Colors.subtle} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search parking, rooms, cars…"
-          placeholderTextColor={Colors.subtle}
-          value={search}
-          onChangeText={setSearch}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          returnKeyType="search"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top:6, bottom:6, left:6, right:6 }}>
-            <Feather name="x" size={15} color={Colors.subtle} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.filterBtn} onPress={openFilter} activeOpacity={0.85}>
-          <Feather name="sliders" size={14} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Category pills */}
-      <CategoryPills active={category} onChange={setCategory} />
-    </View>
-  ), [search, category, searchFocused]);
-
-  // ── List header: BannerCarousel sections ────────────────────────────────────
+  // ── List header ──────────────────────────────────────────────────────────────
   const ListHeader = useCallback(() => (
     <View style={styles.listHeaderWrap}>
-      <BannerCarousel onListingPress={(id) => {
-        const found = LISTINGS.find(l => l.id === id);
-        if (found) setSelected(found);
-      }} />
+      <BannerCarousel
+        onListingPress={(id) => {
+          const found = LISTINGS.find(l => l.id === id);
+          if (found) setSelected(found);
+        }}
+      />
 
-      {/* Results strip */}
-      <View style={styles.resultsRow}>
-        <AppText variant="label" color={Colors.muted}>
-          <AppText variant="label" weight="bold" color={Colors.ink}>
-            {filtered.length}
+      {/* "All Listings" section header with See all + Map view */}
+      <View style={styles.allListingsHeader}>
+        <View style={styles.allListingsLeft}>
+          <AppText variant="h2" weight="extrabold">All listings</AppText>
+          <AppText variant="caption" color={Colors.subtle} style={{ marginTop:2 }}>
+            {filtered.length} spaces within {radiusKm} km
           </AppText>
-          {' '}spaces within {radiusKm} km
-        </AppText>
-        <TouchableOpacity style={styles.mapBtn} activeOpacity={0.8}>
-          <Feather name="map" size={13} color={Colors.primary} />
-          <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginLeft: 4 }}>
-            Map
-          </AppText>
-        </TouchableOpacity>
+        </View>
+        <View style={styles.allListingsRight}>
+          <TouchableOpacity style={styles.seeAllBtn} activeOpacity={0.8}>
+            <AppText variant="label" weight="bold" color={Colors.primary}>See all</AppText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mapBtn} activeOpacity={0.8}>
+            <Feather name="map" size={13} color={Colors.primary} />
+            <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginLeft:4 }}>
+              Map
+            </AppText>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   ), [filtered.length, radiusKm]);
 
-  // ── 2-column renderer ───────────────────────────────────────────────────────
+  // ── 2-column renderer ────────────────────────────────────────────────────────
   function renderItem({ item, index }: { item: Listing; index: number }) {
     return (
       <View style={[styles.cardWrap, index % 2 === 0 ? styles.cardLeft : styles.cardRight]}>
@@ -151,10 +120,19 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Sticky search + category bar */}
-      <StickyBar />
 
-      {/* Main scrollable content */}
+      {/* Sticky header — location, greeting, search, category pills */}
+      <ExploreHeader
+        search={search}
+        category={category}
+        radiusKm={radiusKm}
+        onSearch={setSearch}
+        onCategory={setCategory}
+        onFilter={openFilter}
+        onNotif={() => {}}
+      />
+
+      {/* Scrollable body */}
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
@@ -166,11 +144,11 @@ export default function ExploreScreen() {
         renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <AppText style={{ fontSize: 44 }}>🔍</AppText>
-            <AppText variant="h3" weight="bold" center style={{ marginTop: Spacing.md }}>
+            <AppText style={{ fontSize:44 }}>🔍</AppText>
+            <AppText variant="h3" weight="bold" center style={{ marginTop:Spacing.md }}>
               No listings found
             </AppText>
-            <AppText variant="body" color={Colors.muted} center style={{ marginTop: Spacing.sm, maxWidth: 260 }}>
+            <AppText variant="body" color={Colors.muted} center style={{ marginTop:Spacing.sm, maxWidth:260 }}>
               Try increasing your search radius or changing the category.
             </AppText>
             <TouchableOpacity style={styles.resetBtn} onPress={resetFilter} activeOpacity={0.85}>
@@ -180,7 +158,6 @@ export default function ExploreScreen() {
         }
       />
 
-      {/* Filter sheet */}
       <RadiusFilterSheet
         visible={filterVisible}
         radiusKm={pendingRadius}
@@ -192,7 +169,6 @@ export default function ExploreScreen() {
         onApply={applyFilter}
       />
 
-      {/* Detail sheet */}
       <ListingDetailSheet
         listing={selectedListing}
         saved={selectedListing ? saved.has(selectedListing.id) : false}
@@ -205,59 +181,36 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
+  safe: { flex:1, backgroundColor:Colors.bg },
 
-  // Sticky search bar at top
-  stickyBar: {
-    backgroundColor:   Colors.white,
-    paddingHorizontal: Spacing.xl,
-    paddingTop:        Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  searchBar: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   Colors.bg,
-    borderRadius:      Radius.md,
-    paddingHorizontal: 14,
-    paddingVertical:   2,
-    marginBottom:      Spacing.md,
-    borderWidth:       1.5,
-    borderColor:       Colors.border,
-  },
-  searchBarFocused: {
-    borderColor:     Colors.primary,
-    backgroundColor: Colors.white,
-  },
-  searchInput: {
-    flex:            1,
-    fontSize:        14,
-    color:           Colors.ink,
-    marginLeft:      8,
-    paddingVertical: 10,
-    fontFamily:      'PlusJakartaSans_400Regular',
-  },
-  filterBtn: {
-    width:           34,
-    height:          34,
-    borderRadius:    8,
-    backgroundColor: Colors.primary,
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginLeft:      8,
-  },
-
-  // List header area
   listHeaderWrap: {
     paddingHorizontal: Spacing.xl,
-    paddingTop:        Spacing.xl,
+    paddingTop:        Spacing.lg,
   },
-  resultsRow: {
+
+  // "All listings" row — title + subtitle on left, See all + Map on right
+  allListingsHeader: {
     flexDirection:  'row',
-    alignItems:     'center',
+    alignItems:     'flex-start',
     justifyContent: 'space-between',
     marginBottom:   Spacing.sm,
+    marginTop:      Spacing['2xl'],
+  },
+  allListingsLeft: {
+    flex: 1,
+  },
+  allListingsRight: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           Spacing.sm,
+    marginTop:     2,
+  },
+  seeAllBtn: {
+    paddingVertical:   6,
+    paddingHorizontal: 12,
+    borderRadius:      Radius.full,
+    borderWidth:       1.5,
+    borderColor:       Colors.primary,
   },
   mapBtn: {
     flexDirection:     'row',
@@ -266,10 +219,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius:      Radius.full,
     borderWidth:       1.5,
-    borderColor:       Colors.primary,
+    borderColor:       Colors.border,
   },
 
-  // Grid
   listContent: {
     paddingHorizontal: Spacing.xl,
     paddingBottom:     Spacing['5xl'],
@@ -278,13 +230,13 @@ const styles = StyleSheet.create({
     gap:          CARD_GAP,
     marginBottom: CARD_GAP,
   },
-  cardWrap:  { flex: 1 },
+  cardWrap:  { flex:1 },
   cardLeft:  {},
   cardRight: {},
 
   empty: {
-    alignItems:     'center',
-    justifyContent: 'center',
+    alignItems:      'center',
+    justifyContent:  'center',
     paddingVertical: Spacing['5xl'],
     paddingTop:      Spacing['3xl'],
   },
