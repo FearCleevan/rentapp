@@ -1,320 +1,311 @@
-//app/(tabs)/host/index.tsx
-import { useState } from 'react';
+// app/(tabs)/host/index.tsx
+
+import { useState, useEffect, useCallback } from 'react';
 import {
-  View, ScrollView, StyleSheet, TouchableOpacity, Switch,
+  View, ScrollView, StyleSheet, TouchableOpacity,
+  Switch, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { AppText } from '@/components/ui/AppText';
-import { AppButton } from '@/components/ui/AppButton';
+import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
+
+import { AppText }    from '@/components/ui/AppText';
+import { AppButton }  from '@/components/ui/AppButton';
+import { useAuthStore } from '@/store/authStore';
+import { fetchHostListings, setListingStatus } from '@/lib/listingsService';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Category icon map ────────────────────────────────────────────────────────
 
-const HOST_PROFILE = {
-  name:      'Miguel',
-  totalEarnings: 12450,
-  monthEarnings: 3200,
-  bookingsThisMonth: 6,
-  activeListings: 3,
-  responseRate: 98,
-  isVerified: false,
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
+type MCIName     = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+const CATEGORY_CONFIG: Record<string, {
+  icon:      FeatherName | MCIName;
+  iconLib:   'feather' | 'mci';
+  color:     string;
+  bg:        string;
+}> = {
+  parking:      { icon: 'map-pin',            iconLib: 'feather', color: '#FF6B35', bg: '#FFF0EB' },
+  room:         { icon: 'home',               iconLib: 'feather', color: '#0D9E75', bg: '#E8F8F3' },
+  vehicle:      { icon: 'truck',              iconLib: 'feather', color: '#534AB7', bg: '#EEEDFE' },
+  equipment:    { icon: 'camera',             iconLib: 'feather', color: '#854F0B', bg: '#FAEEDA' },
+  event_venue:  { icon: 'calendar',           iconLib: 'feather', color: '#C0480A', bg: '#FAECE7' },
+  meeting_room: { icon: 'briefcase',          iconLib: 'feather', color: '#1A6E8C', bg: '#DDE8EC' },
+  storage:      { icon: 'package',            iconLib: 'feather', color: '#5F5E5A', bg: '#F1EFE8' },
 };
 
-const PENDING_REQUESTS = [
-  {
-    id:         'R001',
-    renterName: 'Jessa Reyes',
-    renterVerified: true,
-    listing:    'Covered Parking · SM Lanang',
-    dates:      'Mar 24 – Mar 24',
-    time:       '8:00 AM – 5:00 PM',
-    vehicle:    'Sedan · ABC 1234',
-    amount:     880,
-    hostEarns:  790,
-    hoursLeft:  11,
-    emoji:      '🅿️',
-  },
-  {
-    id:         'R002',
-    renterName: 'Paolo Cruz',
-    renterVerified: false,
-    listing:    'Toyota Vios 2022',
-    dates:      'Mar 28 – Mar 29',
-    time:       'Full day',
-    vehicle:    null,
-    amount:     3300,
-    hostEarns:  2970,
-    hoursLeft:  23,
-    emoji:      '🚗',
-  },
-];
-
-const MY_LISTINGS = [
-  {
-    id:       'L001',
-    emoji:    '🅿️',
-    title:    'Covered Parking · SM Lanang',
-    price:    '₱80/hr',
-    rating:   4.9,
-    reviews:  38,
-    status:   'active' as const,
-    upcoming: 3,
-  },
-  {
-    id:       'L002',
-    emoji:    '🚗',
-    title:    'Toyota Vios 2022 · Self-drive',
-    price:    '₱1,500/day',
-    rating:   4.7,
-    reviews:  22,
-    status:   'active' as const,
-    upcoming: 1,
-  },
-  {
-    id:       'L003',
-    emoji:    '🏠',
-    title:    'Private Room · Matina',
-    price:    '₱800/night',
-    rating:   0,
-    reviews:  0,
-    status:   'draft' as const,
-    upcoming: 0,
-  },
-];
-
-const QUICK_ACTIONS = [
-  { icon: 'plus-circle', label: 'Add listing',    color: Colors.primaryLight, iconColor: Colors.primary },
-  { icon: 'calendar',    label: 'Availability',   color: Colors.tealLight,    iconColor: Colors.teal    },
-  { icon: 'bar-chart-2', label: 'Earnings',       color: '#EEEDFE',           iconColor: '#534AB7'      },
-  { icon: 'message-circle', label: 'Messages',    color: '#FAEEDA',           iconColor: '#854F0B'      },
-];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function EarningsCard() {
-  return (
-    <View style={styles.earningsCard}>
-      <View style={styles.earningsTop}>
-        <View>
-          <AppText variant="caption" weight="semibold" color="rgba(255,255,255,0.7)">
-            THIS MONTH'S EARNINGS
-          </AppText>
-          <AppText
-            variant="display"
-            weight="extrabold"
-            color={Colors.white}
-            style={{ marginTop: 4 }}
-          >
-            ₱{HOST_PROFILE.monthEarnings.toLocaleString()}
-          </AppText>
-        </View>
-        <View style={styles.earningsBadge}>
-          <Feather name="trending-up" size={14} color={Colors.white} />
-          <AppText
-            variant="caption"
-            weight="bold"
-            color={Colors.white}
-            style={{ marginLeft: 4 }}
-          >
-            +24%
-          </AppText>
-        </View>
-      </View>
-
-      <View style={styles.earningsStats}>
-        {[
-          { label: 'Bookings',     value: HOST_PROFILE.bookingsThisMonth },
-          { label: 'Active lists', value: HOST_PROFILE.activeListings    },
-          { label: 'Response %',  value: `${HOST_PROFILE.responseRate}%` },
-        ].map(s => (
-          <View key={s.label} style={styles.earningsStat}>
-            <AppText
-              variant="bodyLg"
-              weight="extrabold"
-              color={Colors.white}
-            >
-              {s.value}
-            </AppText>
-            <AppText
-              variant="caption"
-              color="rgba(255,255,255,0.65)"
-              style={{ marginTop: 2 }}
-            >
-              {s.label}
-            </AppText>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function PendingCard({ item, onAccept, onDecline }: {
-  item: typeof PENDING_REQUESTS[number];
-  onAccept:  () => void;
-  onDecline: () => void;
+function CategoryIcon({
+  category,
+  size = 22,
+  style,
+}: {
+  category: string;
+  size?:    number;
+  style?:   any;
 }) {
+  const cfg = CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG.storage;
+  if (cfg.iconLib === 'mci') {
+    return (
+      <MaterialCommunityIcons
+        name={cfg.icon as MCIName}
+        size={size}
+        color={cfg.color}
+        style={style}
+      />
+    );
+  }
   return (
-    <View style={[styles.requestCard]}>
-      {/* Timer */}
-      <View style={styles.requestHeader}>
-        <View style={styles.renterRow}>
-          <View style={styles.renterAvatar}>
-            <AppText weight="bold" color={Colors.white} style={{ fontSize: 13 }}>
-              {item.renterName.split(' ').map(n => n[0]).join('')}
-            </AppText>
-          </View>
-          <View>
-            <AppText variant="label" weight="bold">{item.renterName}</AppText>
-            {item.renterVerified
-              ? <AppText variant="caption" weight="bold" color={Colors.teal}>✓ ID Verified</AppText>
-              : <AppText variant="caption" color={Colors.subtle}>Not yet verified</AppText>
-            }
-          </View>
-        </View>
-        <View style={styles.timerBadge}>
-          <Feather name="clock" size={11} color="#854F0B" />
-          <AppText
-            variant="caption"
-            weight="bold"
-            color="#854F0B"
-            style={{ marginLeft: 3 }}
-          >
-            {item.hoursLeft}h left
-          </AppText>
-        </View>
-      </View>
-
-      {/* Details */}
-      <View style={styles.requestDetails}>
-        <AppText style={{ fontSize: 20 }}>{item.emoji}</AppText>
-        <View style={{ marginLeft: Spacing.sm, flex: 1 }}>
-          <AppText variant="label" weight="bold" numberOfLines={1}>
-            {item.listing}
-          </AppText>
-          <AppText variant="caption" color={Colors.muted}>
-            {item.dates} · {item.time}
-          </AppText>
-          {item.vehicle && (
-            <AppText variant="caption" color={Colors.muted}>{item.vehicle}</AppText>
-          )}
-        </View>
-      </View>
-
-      {/* Amount */}
-      <View style={styles.amountRow}>
-        <AppText variant="label" color={Colors.muted}>
-          Renter pays{' '}
-          <AppText variant="label" weight="bold" color={Colors.ink}>
-            ₱{item.amount.toLocaleString()}
-          </AppText>
-        </AppText>
-        <AppText variant="label" weight="bold" color={Colors.teal}>
-          You earn ₱{item.hostEarns.toLocaleString()}
-        </AppText>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.requestActions}>
-        <TouchableOpacity
-          style={styles.acceptBtn}
-          onPress={onAccept}
-          activeOpacity={0.85}
-        >
-          <Feather name="check" size={15} color={Colors.white} />
-          <AppText
-            variant="label"
-            weight="bold"
-            color={Colors.white}
-            style={{ marginLeft: 5 }}
-          >
-            Accept
-          </AppText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.declineBtn}
-          onPress={onDecline}
-          activeOpacity={0.85}
-        >
-          <AppText variant="label" weight="bold" color={Colors.muted}>
-            Decline
-          </AppText>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <Feather
+      name={cfg.icon as FeatherName}
+      size={size}
+      color={cfg.color}
+      style={style}
+    />
   );
 }
 
-function ListingRow({ item, onToggle }: {
-  item:     typeof MY_LISTINGS[number];
-  onToggle: (active: boolean) => void;
+// ─── Become Host screen ───────────────────────────────────────────────────────
+
+function BecomeHostScreen() {
+  const router = useRouter();
+
+  const PERKS = [
+    { icon: 'dollar-sign' as FeatherName, color: Colors.teal,    bg: Colors.tealLight,    title: 'Earn extra income',     desc: 'Turn idle spaces into steady monthly income'        },
+    { icon: 'shield'      as FeatherName, color: '#534AB7',       bg: '#EEEDFE',           title: 'Protected payments',    desc: 'Every peso held in escrow until rental ends'        },
+    { icon: 'sliders'     as FeatherName, color: Colors.primary,  bg: Colors.primaryLight, title: 'Full control',          desc: 'Set your price, availability, and house rules'      },
+    { icon: 'users'       as FeatherName, color: '#C0480A',       bg: '#FAECE7',           title: 'Verified renters only', desc: 'Renters must verify their ID before they can book'  },
+  ];
+
+  const CATEGORIES = [
+    { category: 'parking',      label: 'Parking',       price: '₱50–200/hr'     },
+    { category: 'room',         label: 'Rooms',          price: '₱500–2k/day'   },
+    { category: 'vehicle',      label: 'Vehicles',       price: '₱800–3k/day'   },
+    { category: 'equipment',    label: 'Equipment',      price: '₱300–2k/day'   },
+    { category: 'event_venue',  label: 'Venues',         price: '₱3k–20k/day'   },
+    { category: 'meeting_room', label: 'Meeting rooms',  price: '₱300–800/hr'   },
+  ];
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.guestScroll}
+      >
+        {/* Hero */}
+        <MotiView
+          from={{ opacity: 0, translateY: 16 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 20, delay: 50 }}
+          style={styles.guestHero}
+        >
+          {/* Hero icon instead of emoji */}
+          <View style={styles.heroIconWrap}>
+            <Feather name="home" size={52} color={Colors.primary} />
+            <View style={styles.heroBadge}>
+              <Feather name="trending-up" size={18} color={Colors.teal} />
+            </View>
+          </View>
+
+          <AppText variant="h1" weight="extrabold" center style={styles.heroTitle}>
+            Start earning from your space
+          </AppText>
+          <AppText variant="body" color={Colors.muted} center style={styles.heroSubtitle}>
+            Join hundreds of hosts in Davao City already earning from their parking slots, rooms, vehicles, and more.
+          </AppText>
+
+          <View style={styles.earningsBanner}>
+            <View style={styles.earningsIconWrap}>
+              <Feather name="trending-up" size={18} color={Colors.teal} />
+            </View>
+            <View style={{ marginLeft: Spacing.md, flex: 1 }}>
+              <AppText variant="label" weight="bold" color={Colors.teal}>
+                Average host earns ₱8,000/month
+              </AppText>
+              <AppText variant="caption" color={Colors.muted}>
+                Based on Davao City hosts on Rentapp
+              </AppText>
+            </View>
+          </View>
+        </MotiView>
+
+        {/* Perks */}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 20, delay: 150 }}
+          style={styles.perksSection}
+        >
+          <AppText variant="h3" weight="extrabold" style={{ marginBottom: Spacing.lg }}>
+            Why host on Rentapp?
+          </AppText>
+
+          {PERKS.map(perk => (
+            <View key={perk.icon} style={styles.perkRow}>
+              <View style={[styles.perkIcon, { backgroundColor: perk.bg }]}>
+                <Feather name={perk.icon} size={20} color={perk.color} />
+              </View>
+              <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                <AppText variant="label" weight="bold">{perk.title}</AppText>
+                <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
+                  {perk.desc}
+                </AppText>
+              </View>
+            </View>
+          ))}
+        </MotiView>
+
+        {/* Categories */}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 20, delay: 250 }}
+        >
+          <AppText variant="h3" weight="extrabold" style={{ marginBottom: Spacing.md }}>
+            What can you list?
+          </AppText>
+
+          <View style={styles.categoriesGrid}>
+            {CATEGORIES.map(c => {
+              const cfg = CATEGORY_CONFIG[c.category] ?? CATEGORY_CONFIG.storage;
+              return (
+                <View key={c.category} style={styles.categoryCard}>
+                  <View style={[styles.categoryIconWrap, { backgroundColor: cfg.bg }]}>
+                    <CategoryIcon category={c.category} size={24} />
+                  </View>
+                  <AppText variant="label" weight="bold" center style={{ marginTop: Spacing.sm }}>
+                    {c.label}
+                  </AppText>
+                  <AppText variant="caption" weight="semibold" center style={{ color: cfg.color, marginTop: 2 }}>
+                    {c.price}
+                  </AppText>
+                </View>
+              );
+            })}
+          </View>
+        </MotiView>
+
+        {/* CTA */}
+        <View style={styles.ctaSection}>
+          <AppButton
+            label="Become a host — it's free →"
+            onPress={() => router.push('/become-host')}
+          />
+          <AppText variant="caption" color={Colors.subtle} center style={{ marginTop: Spacing.sm }}>
+            No fees to list · Cancel anytime · You stay in control
+          </AppText>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── Host Dashboard ───────────────────────────────────────────────────────────
+
+const QUICK_ACTIONS: {
+  icon:      FeatherName;
+  label:     string;
+  color:     string;
+  iconColor: string;
+}[] = [
+  { icon: 'plus-circle',    label: 'Add listing',  color: Colors.primaryLight, iconColor: Colors.primary },
+  { icon: 'calendar',       label: 'Availability', color: Colors.tealLight,    iconColor: Colors.teal    },
+  { icon: 'bar-chart-2',    label: 'Earnings',     color: '#EEEDFE',           iconColor: '#534AB7'      },
+  { icon: 'message-circle', label: 'Messages',     color: '#FAEEDA',           iconColor: '#854F0B'      },
+];
+
+function ListingRow({
+  item,
+  index,
+  onToggle,
+}: {
+  item:     any;
+  index:    number;
+  onToggle: (id: string, active: boolean) => void;
 }) {
   const [active, setActive] = useState(item.status === 'active');
+  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
 
-  const statusCfg = {
-    active: { label: 'Active', bg: Colors.tealLight,    text: Colors.teal    },
-    paused: { label: 'Paused', bg: Colors.bg,           text: Colors.subtle  },
-    draft:  { label: 'Draft',  bg: '#FAEEDA',           text: '#854F0B'      },
-  };
-  const cfg = statusCfg[active ? 'active' : item.status === 'draft' ? 'draft' : 'paused'];
+  const statusCfg = active
+    ? { label: 'Active', bg: Colors.tealLight, text: Colors.teal }
+    : item.status === 'draft'
+      ? { label: 'Draft',  bg: '#FAEEDA',    text: '#854F0B'      }
+      : { label: 'Paused', bg: Colors.bg,    text: Colors.subtle  };
 
   return (
-    <TouchableOpacity style={styles.listingRow} activeOpacity={0.85}>
-      <View style={styles.listingThumb}>
-        <AppText style={{ fontSize: 26 }}>{item.emoji}</AppText>
-      </View>
-      <View style={{ flex: 1, marginLeft: Spacing.md }}>
-        <AppText variant="label" weight="bold" numberOfLines={1}>
-          {item.title}
-        </AppText>
-        <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
-          {item.price}
-          {item.reviews > 0
-            ? ` · ★${item.rating} (${item.reviews})`
-            : ' · No reviews yet'}
-        </AppText>
-        <View style={styles.listingStatusRow}>
-          <View style={[styles.listingStatusPill, { backgroundColor: cfg.bg }]}>
-            <AppText variant="caption" weight="bold" color={cfg.text}>
-              {cfg.label}
-            </AppText>
-          </View>
-          {item.upcoming > 0 && (
-            <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 8 }}>
-              {item.upcoming} upcoming
-            </AppText>
-          )}
-          {item.status === 'draft' && (
-            <AppText variant="caption" color="#854F0B" style={{ marginLeft: 8 }}>
-              Tap to publish
-            </AppText>
-          )}
+    <View>
+      {index > 0 && <View style={styles.listingDivider} />}
+      <TouchableOpacity style={styles.listingRow} activeOpacity={0.85}>
+        {/* Icon thumb */}
+        <View style={[styles.listingThumb, { backgroundColor: cfg.bg }]}>
+          <CategoryIcon category={item.category} size={22} />
         </View>
-      </View>
-      {item.status !== 'draft' && (
-        <Switch
-          value={active}
-          onValueChange={(v) => { setActive(v); onToggle(v); }}
-          trackColor={{ false: Colors.border, true: Colors.teal }}
-          thumbColor={Colors.white}
-          style={{ marginLeft: Spacing.sm }}
-        />
-      )}
-    </TouchableOpacity>
+
+        <View style={{ flex: 1, marginLeft: Spacing.md }}>
+          <AppText variant="label" weight="bold" numberOfLines={1}>{item.title}</AppText>
+          <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
+            ₱{Number(item.price).toLocaleString()}/{item.price_unit}
+            {item.avg_rating > 0
+              ? ` · ★${item.avg_rating.toFixed(1)} (${item.review_count})`
+              : ' · No reviews yet'}
+          </AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <View style={[styles.statusPill, { backgroundColor: statusCfg.bg }]}>
+              <AppText variant="caption" weight="bold" color={statusCfg.text}>
+                {statusCfg.label}
+              </AppText>
+            </View>
+            {item.total_bookings > 0 && (
+              <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 8 }}>
+                {item.total_bookings} bookings
+              </AppText>
+            )}
+          </View>
+        </View>
+
+        {item.status !== 'draft' && (
+          <Switch
+            value={active}
+            onValueChange={(v) => { setActive(v); onToggle(item.id, v); }}
+            trackColor={{ false: Colors.border, true: Colors.teal }}
+            thumbColor={Colors.white}
+            style={{ marginLeft: Spacing.sm }}
+          />
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+function HostDashboard() {
+  const { user, profile } = useAuthStore();
 
-export default function HostScreen() {
-  const [requests, setRequests] = useState(PENDING_REQUESTS);
+  const [listings,     setListings]     = useState<any[]>([]);
+  const [isLoading,    setIsLoading]    = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  function handleAccept(id: string) {
-    setRequests(prev => prev.filter(r => r.id !== id));
-  }
-  function handleDecline(id: string) {
-    setRequests(prev => prev.filter(r => r.id !== id));
+  const firstName = (profile?.full_name ?? 'Host').split(' ')[0];
+
+  const loadListings = useCallback(async (refresh = false) => {
+    if (!user?.id) return;
+    if (refresh) setIsRefreshing(true);
+    else         setIsLoading(true);
+    const { data } = await fetchHostListings(user.id);
+    setListings(data ?? []);
+    setIsLoading(false);
+    setIsRefreshing(false);
+  }, [user?.id]);
+
+  useEffect(() => { loadListings(); }, [loadListings]);
+
+  const activeListings = listings.filter(l => l.status === 'active').length;
+  const totalBookings  = listings.reduce((s, l) => s + (l.total_bookings ?? 0), 0);
+
+  async function handleToggle(listingId: string, active: boolean) {
+    await setListingStatus(listingId, active ? 'active' : 'paused');
+    loadListings();
   }
 
   return (
@@ -322,23 +313,27 @@ export default function HostScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => loadListings(true)}
+            tintColor={Colors.primary}
+          />
+        }
       >
         {/* Greeting */}
         <View style={styles.greeting}>
           <View>
-            <AppText variant="caption" color={Colors.muted}>Good morning,</AppText>
-            <AppText variant="h2" weight="extrabold">
-              {HOST_PROFILE.name} 👋
-            </AppText>
+            <AppText variant="caption" color={Colors.muted}>Welcome back,</AppText>
+            <AppText variant="h2" weight="extrabold">{firstName} 👋</AppText>
           </View>
           <TouchableOpacity style={styles.notifBtn}>
             <Feather name="bell" size={20} color={Colors.ink} />
-            <View style={styles.notifDot} />
           </TouchableOpacity>
         </View>
 
         {/* Verify banner */}
-        {!HOST_PROFILE.isVerified && (
+        {!profile?.is_verified && (
           <TouchableOpacity style={styles.verifyBanner} activeOpacity={0.85}>
             <Feather name="shield" size={18} color="#854F0B" />
             <View style={{ flex: 1, marginLeft: Spacing.sm }}>
@@ -353,75 +348,86 @@ export default function HostScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Earnings card */}
-        <EarningsCard />
+        {/* Stats card */}
+        <View style={styles.statsCard}>
+          {[
+            { label: 'Active listings', value: activeListings, icon: 'home'        as FeatherName },
+            { label: 'Total bookings',  value: totalBookings,  icon: 'calendar'    as FeatherName },
+            { label: 'Avg rating',      value: profile?.host_rating
+                ? `★${profile.host_rating.toFixed(1)}` : '—',
+              icon: 'star' as FeatherName },
+          ].map((s, i) => (
+            <View key={s.label} style={styles.statItem}>
+              {i > 0 && <View style={styles.statDivider} />}
+              <View style={styles.statIconWrap}>
+                <Feather name={s.icon} size={14} color="rgba(255,255,255,0.6)" />
+              </View>
+              <AppText variant="h2" weight="extrabold" color={Colors.white} style={{ marginTop: 4 }}>
+                {s.value}
+              </AppText>
+              <AppText variant="caption" color="rgba(255,255,255,0.6)" style={{ marginTop: 2 }} center>
+                {s.label}
+              </AppText>
+            </View>
+          ))}
+        </View>
 
         {/* Quick actions */}
         <View style={styles.quickActions}>
           {QUICK_ACTIONS.map(a => (
-            <TouchableOpacity
-              key={a.label}
-              style={styles.qaBtn}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity key={a.label} style={styles.qaBtn} activeOpacity={0.8}>
               <View style={[styles.qaIcon, { backgroundColor: a.color }]}>
-                <Feather name={a.icon as any} size={18} color={a.iconColor} />
+                <Feather name={a.icon} size={18} color={a.iconColor} />
               </View>
-              <AppText
-                variant="caption"
-                weight="semibold"
-                color={Colors.muted}
-                center
-                style={{ marginTop: 5 }}
-              >
+              <AppText variant="caption" weight="semibold" color={Colors.muted} center style={{ marginTop: 5 }}>
                 {a.label}
               </AppText>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Pending requests */}
-        {requests.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <AppText variant="bodyLg" weight="bold">Pending requests</AppText>
-              <View style={styles.countBadge}>
-                <AppText variant="caption" weight="bold" color={Colors.white}>
-                  {requests.length}
-                </AppText>
-              </View>
-            </View>
-            {requests.map(r => (
-              <PendingCard
-                key={r.id}
-                item={r}
-                onAccept={() => handleAccept(r.id)}
-                onDecline={() => handleDecline(r.id)}
-              />
-            ))}
-          </>
-        )}
-
-        {/* My listings */}
+        {/* My Listings */}
         <View style={styles.sectionHeader}>
           <AppText variant="bodyLg" weight="bold">My listings</AppText>
-          <TouchableOpacity>
-            <AppText variant="label" weight="bold" color={Colors.primary}>
-              Manage all
+          <View style={styles.listingsCountBadge}>
+            <AppText variant="caption" weight="bold" color={Colors.primary}>
+              {listings.length} total
             </AppText>
-          </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.listingsCard}>
-          {MY_LISTINGS.map((item, i) => (
-            <View key={item.id}>
-              {i > 0 && <View style={styles.listingDivider} />}
-              <ListingRow item={item} onToggle={() => {}} />
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={Colors.primary} />
+            <AppText variant="caption" color={Colors.muted} style={{ marginTop: 8 }}>
+              Loading listings…
+            </AppText>
+          </View>
+        ) : listings.length === 0 ? (
+          <View style={styles.emptyListings}>
+            <View style={styles.emptyIconWrap}>
+              <Feather name="plus-circle" size={32} color={Colors.primary} />
             </View>
-          ))}
-        </View>
+            <AppText variant="h3" weight="bold" center style={{ marginTop: Spacing.md }}>
+              No listings yet
+            </AppText>
+            <AppText variant="body" color={Colors.muted} center style={{ marginTop: Spacing.sm }}>
+              Add your first listing to start earning.
+            </AppText>
+          </View>
+        ) : (
+          <View style={styles.listingsCard}>
+            {listings.map((item, i) => (
+              <ListingRow
+                key={item.id}
+                item={item}
+                index={i}
+                onToggle={handleToggle}
+              />
+            ))}
+          </View>
+        )}
 
-        {/* Add listing button */}
         <AppButton
           label="+ Add new listing"
           onPress={() => {}}
@@ -432,12 +438,123 @@ export default function HostScreen() {
   );
 }
 
+// ─── Root export ──────────────────────────────────────────────────────────────
+
+export default function HostScreen() {
+  const { profile, isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isHost = (profile as any)?.is_host === true;
+  return isHost ? <HostDashboard /> : <BecomeHostScreen />;
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.xl, paddingBottom: Spacing['5xl'], gap: Spacing.lg },
 
+  // ── Guest ──────────────────────────────────────────────────────────────────
+  guestScroll: { padding: Spacing.xl, paddingBottom: Spacing['5xl'], gap: Spacing.xl },
+  guestHero:   { alignItems: 'center' },
+
+  heroIconWrap: {
+    width:           130,
+    height:          130,
+    borderRadius:    65,
+    backgroundColor: Colors.primaryLight,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    Spacing.xl,
+    borderWidth:     2,
+    borderColor:     Colors.primary + '20',
+  },
+  heroBadge: {
+    position:        'absolute',
+    bottom:          4,
+    right:           4,
+    width:           40,
+    height:          40,
+    borderRadius:    20,
+    backgroundColor: Colors.tealLight,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderWidth:     2,
+    borderColor:     Colors.white,
+  },
+
+  heroTitle:    { marginBottom: Spacing.md, lineHeight: 36 },
+  heroSubtitle: { lineHeight: 22, maxWidth: 300, textAlign: 'center', marginBottom: Spacing.lg },
+
+  earningsBanner: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: Colors.tealLight,
+    borderRadius:    Radius.md,
+    padding:         Spacing.md,
+    width:           '100%',
+  },
+  earningsIconWrap: {
+    width:           38,
+    height:          38,
+    borderRadius:    10,
+    backgroundColor: Colors.white,
+    alignItems:      'center',
+    justifyContent:  'center',
+    flexShrink:      0,
+  },
+
+  perksSection: { gap: Spacing.sm },
+  perkRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: Colors.white,
+    borderRadius:    Radius.lg,
+    padding:         Spacing.md,
+    ...Shadow.sm,
+  },
+  perkIcon: {
+    width:           46,
+    height:          46,
+    borderRadius:    13,
+    alignItems:      'center',
+    justifyContent:  'center',
+    flexShrink:      0,
+  },
+
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           Spacing.sm,
+  },
+  categoryCard: {
+    width:           '30.5%',
+    backgroundColor: Colors.white,
+    borderRadius:    Radius.lg,
+    padding:         Spacing.md,
+    alignItems:      'center',
+    ...Shadow.sm,
+  },
+  categoryIconWrap: {
+    width:           52,
+    height:          52,
+    borderRadius:    14,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+
+  ctaSection: { gap: Spacing.xs },
+
+  // ── Host dashboard ─────────────────────────────────────────────────────────
   greeting: {
     flexDirection:  'row',
     alignItems:     'flex-start',
@@ -450,21 +567,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems:      'center',
     justifyContent:  'center',
-    position:        'relative',
     ...Shadow.sm,
   },
-  notifDot: {
-    position:        'absolute',
-    top:             8,
-    right:           8,
-    width:           8,
-    height:          8,
-    borderRadius:    4,
-    backgroundColor: Colors.primary,
-    borderWidth:     2,
-    borderColor:     Colors.white,
-  },
-
   verifyBanner: {
     flexDirection:   'row',
     alignItems:      'center',
@@ -475,39 +579,36 @@ const styles = StyleSheet.create({
     borderColor:     '#FDE68A',
   },
 
-  earningsCard: {
+  statsCard: {
     backgroundColor: Colors.ink,
     borderRadius:    Radius.lg,
     padding:         Spacing.xl,
+    flexDirection:   'row',
   },
-  earningsTop: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'flex-start',
-    marginBottom:   Spacing.lg,
+  statItem: {
+    flex:       1,
+    alignItems: 'center',
+    position:   'relative',
   },
-  earningsBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   'rgba(255,255,255,0.15)',
-    borderRadius:      Radius.full,
-    paddingVertical:   5,
-    paddingHorizontal: 10,
+  statDivider: {
+    position:        'absolute',
+    left:            0,
+    top:             '10%',
+    width:           1,
+    height:          '80%',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  earningsStats: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    paddingTop:     Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
+  statIconWrap: {
+    width:           28,
+    height:          28,
+    borderRadius:    8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  earningsStat: { alignItems: 'center' },
 
-  quickActions: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-  },
-  qaBtn: { alignItems: 'center', flex: 1 },
+  quickActions: { flexDirection: 'row', justifyContent: 'space-between' },
+  qaBtn:        { alignItems: 'center', flex: 1 },
   qaIcon: {
     width:          52,
     height:         52,
@@ -521,85 +622,13 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'space-between',
   },
-  countBadge: {
-    backgroundColor:   Colors.primary,
-    borderRadius:      Radius.full,
-    width:             22,
-    height:            22,
-    alignItems:        'center',
-    justifyContent:    'center',
-    marginLeft:        Spacing.sm,
-  },
-
-  requestCard: {
-    backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.amber,
-    ...Shadow.sm,
-  },
-  requestHeader: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-    marginBottom:   Spacing.md,
-  },
-  renterRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           Spacing.sm,
-  },
-  renterAvatar: {
-    width:           38,
-    height:          38,
-    borderRadius:    19,
-    backgroundColor: '#534AB7',
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  timerBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   '#FAEEDA',
+  listingsCountBadge: {
+    backgroundColor:   Colors.primaryLight,
     borderRadius:      Radius.full,
     paddingVertical:   4,
-    paddingHorizontal: 10,
-  },
-  requestDetails: {
-    flexDirection:   'row',
-    alignItems:      'flex-start',
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.md,
-    padding:         Spacing.md,
-    marginBottom:    Spacing.md,
-  },
-  amountRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    marginBottom:   Spacing.md,
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap:           Spacing.sm,
-  },
-  acceptBtn: {
-    flex:              1,
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'center',
-    backgroundColor:   Colors.teal,
-    borderRadius:      Radius.md,
-    paddingVertical:   12,
-  },
-  declineBtn: {
-    flex:              1,
-    alignItems:        'center',
-    justifyContent:    'center',
-    borderRadius:      Radius.md,
-    paddingVertical:   12,
-    borderWidth:       1.5,
-    borderColor:       Colors.border,
+    paddingHorizontal: 12,
+    borderWidth:       1,
+    borderColor:       Colors.primary + '30',
   },
 
   listingsCard: {
@@ -618,24 +647,39 @@ const styles = StyleSheet.create({
     width:           52,
     height:          52,
     borderRadius:    Radius.md,
-    backgroundColor: Colors.bg,
     alignItems:      'center',
     justifyContent:  'center',
     flexShrink:      0,
-  },
-  listingStatusRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginTop:     4,
-  },
-  listingStatusPill: {
-    borderRadius:      Radius.full,
-    paddingVertical:   2,
-    paddingHorizontal: 8,
   },
   listingDivider: {
     height:           1,
     backgroundColor:  Colors.border,
     marginHorizontal: Spacing.lg,
+  },
+  statusPill: {
+    borderRadius:      Radius.full,
+    paddingVertical:   2,
+    paddingHorizontal: 8,
+  },
+
+  loadingState: {
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingVertical: Spacing['3xl'],
+  },
+  emptyListings: {
+    alignItems:      'center',
+    paddingVertical: Spacing['3xl'],
+    backgroundColor: Colors.white,
+    borderRadius:    Radius.lg,
+    ...Shadow.sm,
+  },
+  emptyIconWrap: {
+    width:           72,
+    height:          72,
+    borderRadius:    20,
+    backgroundColor: Colors.primaryLight,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
 });

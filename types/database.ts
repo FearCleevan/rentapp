@@ -52,6 +52,7 @@ export interface Database {
           gov_id_url:              string | null;
           gov_id_selfie_url:       string | null;
           is_verified:             boolean;
+          is_host:                 boolean;
           total_listings:          number;
           total_earnings:          number;
           host_rating:             number | null;

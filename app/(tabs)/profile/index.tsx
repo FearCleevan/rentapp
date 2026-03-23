@@ -9,45 +9,67 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 
-import { AppText } from '@/components/ui/AppText';
-import { useToast } from '@/components/ui/Toast';
-import { signOut } from '@/lib/supabase';
+import { AppText }   from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
+import { useToast }  from '@/components/ui/Toast';
+import { signOut }   from '@/lib/supabase';
 import {
   fetchHostEarnings,
   fetchHostListingCount,
   fetchRenterBookingCount,
 } from '@/lib/profileService';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile }  from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
 // ─── Settings sections ────────────────────────────────────────────────────────
 
-const SETTINGS_SECTIONS = [
+const GUEST_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { icon: 'user', label: 'Edit profile', chevron: true },
-      { icon: 'shield', label: 'Verify my ID', chevron: true, badge: 'Required' },
-      { icon: 'bell', label: 'Notifications', chevron: false, isSwitch: true },
-      { icon: 'lock', label: 'Change password', chevron: true },
-    ],
-  },
-  {
-    title: 'Hosting',
-    items: [
-      { icon: 'home', label: 'My listings', chevron: true },
-      { icon: 'dollar-sign', label: 'Payout settings', chevron: true },
-      { icon: 'bar-chart-2', label: 'Earnings history', chevron: true },
+      { icon: 'user',           label: 'Edit profile',     chevron: true              },
+      { icon: 'shield',         label: 'Verify my ID',     chevron: true, badge: true },
+      { icon: 'bell',           label: 'Notifications',    isSwitch: true             },
+      { icon: 'lock',           label: 'Change password',  chevron: true              },
     ],
   },
   {
     title: 'Support',
     items: [
-      { icon: 'help-circle', label: 'Help & FAQ', chevron: true },
-      { icon: 'message-circle', label: 'Contact support', chevron: true },
-      { icon: 'file-text', label: 'Terms of Service', chevron: true },
-      { icon: 'eye-off', label: 'Privacy Policy', chevron: true },
+      { icon: 'help-circle',    label: 'Help & FAQ',       chevron: true },
+      { icon: 'message-circle', label: 'Contact support',  chevron: true },
+      { icon: 'file-text',      label: 'Terms of Service', chevron: true },
+      { icon: 'eye-off',        label: 'Privacy Policy',   chevron: true },
+    ],
+  },
+] as const;
+
+const HOST_SECTIONS = [
+  {
+    title: 'Account',
+    items: [
+      { icon: 'user',           label: 'Edit profile',     chevron: true              },
+      { icon: 'shield',         label: 'Verify my ID',     chevron: true, badge: true },
+      { icon: 'bell',           label: 'Notifications',    isSwitch: true             },
+      { icon: 'lock',           label: 'Change password',  chevron: true              },
+    ],
+  },
+  {
+    title: 'Hosting',
+    items: [
+      { icon: 'home',           label: 'My listings',      chevron: true },
+      { icon: 'dollar-sign',    label: 'Payout settings',  chevron: true },
+      { icon: 'bar-chart-2',    label: 'Earnings history', chevron: true },
+    ],
+  },
+  {
+    title: 'Support',
+    items: [
+      { icon: 'help-circle',    label: 'Help & FAQ',       chevron: true },
+      { icon: 'message-circle', label: 'Contact support',  chevron: true },
+      { icon: 'file-text',      label: 'Terms of Service', chevron: true },
+      { icon: 'eye-off',        label: 'Privacy Policy',   chevron: true },
     ],
   },
 ] as const;
@@ -65,60 +87,22 @@ function StatCard({ value, label }: { value: string | number; label: string }) {
   );
 }
 
-function AvatarSection({
-  initials,
-  avatarUrl,
-  onPress,
-  uploading,
-}: {
-  initials: string;
-  avatarUrl: string | null;
-  onPress: () => void;
-  uploading: boolean;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} style={styles.avatar} activeOpacity={0.85}>
-      {uploading ? (
-        <ActivityIndicator color={Colors.white} />
-      ) : avatarUrl ? (
-        // When you add expo-image later, swap this for <Image source={{ uri: avatarUrl }} />
-        <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
-          {initials}
-        </AppText>
-      ) : (
-        <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
-          {initials}
-        </AppText>
-      )}
-      <View style={styles.editAvatarBtn}>
-        <Feather name="camera" size={12} color={Colors.white} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const router = useRouter();
-  const toast = useToast();
-  const { reset } = useAuthStore();
+  const router  = useRouter();
+  const toast   = useToast();
+  const { reset, isLoading } = useAuthStore();
   const { profile, isUpdating, refresh, changeAvatar } = useProfile();
-  const { isLoading } = useAuthStore();
 
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [pushEnabled,  setPushEnabled]  = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState({ bookings: 0, listings: 0, earnings: 0, rating: 0 });
 
-  // Live stats fetched from DB (more accurate than denormalized values)
-  const [stats, setStats] = useState({
-    bookings: 0,
-    listings: 0,
-    earnings: 0,
-    rating: 0,
-  });
+  const isHost = (profile as any)?.is_host === true;
+  const SECTIONS = isHost ? HOST_SECTIONS : GUEST_SECTIONS;
 
-  // ── Load live stats ────────────────────────────────────────────────────────
   useEffect(() => {
     if (profile?.id) loadStats();
   }, [profile?.id]);
@@ -135,102 +119,57 @@ export default function ProfileScreen() {
       bookings: bookingsRes.count,
       listings: listingsRes.count,
       earnings: earningsRes.total,
-      rating: profile.host_rating ?? 0,
+      rating:   profile.host_rating ?? 0,
     });
     setStatsLoading(false);
   }
 
-  // ── Pull to refresh ────────────────────────────────────────────────────────
   async function handleRefresh() {
     setRefreshing(true);
     await Promise.all([refresh(), loadStats()]);
     setRefreshing(false);
   }
 
-  // ── Avatar picker ──────────────────────────────────────────────────────────
   async function handleAvatarPress() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       toast.show('Photo library permission is required.', 'error');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      aspect:        [1, 1],
+      quality:       0.8,
     });
-
     if (!result.canceled && result.assets[0]?.uri) {
       const { error } = await changeAvatar(result.assets[0].uri);
-      if (error) {
-        toast.show('Failed to update avatar. Please try again.', 'error');
-      } else {
-        toast.show('Profile photo updated!', 'success');
-      }
+      if (error) toast.show('Failed to update avatar. Please try again.', 'error');
+      else       toast.show('Profile photo updated!', 'success');
     }
   }
 
-  // ── Sign out ───────────────────────────────────────────────────────────────
   async function handleSignOut() {
-    Alert.alert(
-      'Sign out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            reset();
-            router.replace('/login');
-          },
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text:  'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          reset();
+          router.replace('/login');
         },
-      ]
-    );
+      },
+    ]);
   }
 
-  // ── Derived display values ─────────────────────────────────────────────────
-  const fullName = profile?.full_name ?? 'Loading…';
-  const email = ''; // not stored in profiles — comes from auth.users
-  const initials = fullName
-    .split(' ')
-    .map(n => n[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  const isVerified = profile?.is_verified ?? false;
-  const verifyStatus = profile?.id_verification_status ?? 'none';
-
-  const memberSince = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
-    : '—';
-
-  // ── Loading skeleton ───────────────────────────────────────────────────────
-  if (!profile) {
+  // ── Guards ─────────────────────────────────────────────────────────────────
+  if (isLoading || (!profile && isLoading)) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loadingState}>
+        <View style={styles.centerState}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <AppText variant="body" color={Colors.muted} style={{ marginTop: Spacing.md }}>
-            Loading profile…
-          </AppText>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <AppText variant="body" color={Colors.muted} style={{ marginTop: Spacing.md }}>
-            Loading profile…
-          </AppText>
         </View>
       </SafeAreaView>
     );
@@ -239,18 +178,12 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loadingState}>
+        <View style={styles.centerState}>
           <AppText style={{ fontSize: 40 }}>👤</AppText>
           <AppText variant="h3" weight="bold" center style={{ marginTop: Spacing.md }}>
             Profile not found
           </AppText>
-          <AppText variant="body" color={Colors.muted} center style={{ marginTop: Spacing.sm }}>
-            Try signing out and back in.
-          </AppText>
-          <TouchableOpacity
-            style={{ marginTop: Spacing.lg, padding: Spacing.md }}
-            onPress={handleSignOut}
-          >
+          <TouchableOpacity style={{ marginTop: Spacing.lg }} onPress={handleSignOut}>
             <AppText variant="label" weight="bold" color={Colors.error}>Sign out</AppText>
           </TouchableOpacity>
         </View>
@@ -258,59 +191,62 @@ export default function ProfileScreen() {
     );
   }
 
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const fullName    = profile.full_name ?? '';
+  const initials    = fullName.split(' ').map(n => n[0] ?? '').join('').slice(0, 2).toUpperCase();
+  const isVerified  = profile.is_verified ?? false;
+  const verifyStatus = (profile as any).id_verification_status ?? 'none';
+  const memberSince = new Date(profile.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />
         }
       >
-
-        {/* ── Profile header card ── */}
+        {/* ── Profile header ── */}
         <View style={styles.profileHeader}>
-          <AvatarSection
-            initials={initials}
-            avatarUrl={profile.avatar_url}
-            onPress={handleAvatarPress}
-            uploading={isUpdating}
-          />
+          <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar} activeOpacity={0.85}>
+            {isUpdating ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
+                {initials}
+              </AppText>
+            )}
+            <View style={styles.editAvatarBtn}>
+              <Feather name="camera" size={12} color={Colors.white} />
+            </View>
+          </TouchableOpacity>
 
-          <AppText
-            variant="h2"
-            weight="extrabold"
-            center
-            style={{ marginTop: Spacing.md }}
-          >
+          <AppText variant="h2" weight="extrabold" center style={{ marginTop: Spacing.md }}>
             {fullName}
           </AppText>
 
           {profile.bio ? (
-            <AppText
-              variant="caption"
-              color={Colors.muted}
-              center
-              style={{ marginTop: 4, paddingHorizontal: Spacing.md }}
-            >
+            <AppText variant="caption" color={Colors.muted} center style={{ marginTop: 4, paddingHorizontal: Spacing.md }}>
               {profile.bio}
             </AppText>
           ) : null}
 
-          <AppText
-            variant="caption"
-            color={Colors.subtle}
-            center
-            style={{ marginTop: 4 }}
-          >
+          <AppText variant="caption" color={Colors.subtle} center style={{ marginTop: 4 }}>
             Member since {memberSince}
           </AppText>
 
-          {/* Verification banner */}
+          {/* Host badge */}
+          {isHost && (
+            <View style={styles.hostBadge}>
+              <Feather name="home" size={12} color={Colors.primary} />
+              <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginLeft: 5 }}>
+                Host
+              </AppText>
+            </View>
+          )}
+
+          {/* Verification */}
           {!isVerified ? (
             <TouchableOpacity style={styles.verifyBanner} activeOpacity={0.85}>
               <Feather name="alert-circle" size={14} color="#854F0B" />
@@ -320,51 +256,44 @@ export default function ProfileScreen() {
                     ? 'ID verification is under review'
                     : 'Verify your ID to unlock full access'}
                 </AppText>
-                {verifyStatus === 'none' && (
-                  <AppText variant="caption" color="#A16207">
-                    Takes only 2 minutes — gets you 3× more bookings
-                  </AppText>
-                )}
               </View>
-              {verifyStatus === 'none' && (
-                <Feather name="chevron-right" size={14} color="#854F0B" />
-              )}
+              {verifyStatus === 'none' && <Feather name="chevron-right" size={14} color="#854F0B" />}
             </TouchableOpacity>
           ) : (
             <View style={styles.verifiedBanner}>
               <Feather name="check-circle" size={14} color={Colors.teal} />
-              <AppText
-                variant="label"
-                weight="bold"
-                color={Colors.teal}
-                style={{ marginLeft: 6 }}
-              >
+              <AppText variant="label" weight="bold" color={Colors.teal} style={{ marginLeft: 6 }}>
                 ID Verified
               </AppText>
             </View>
           )}
         </View>
 
-        {/* ── Stats row ── */}
+        {/* ── Stats ── */}
         <View style={styles.statsRow}>
           {statsLoading ? (
             <ActivityIndicator color={Colors.primary} style={{ flex: 1 }} />
+          ) : isHost ? (
+            <>
+              <StatCard value={stats.bookings} label="Bookings"  />
+              <View style={styles.statDivider} />
+              <StatCard value={stats.listings}  label="Listings"  />
+              <View style={styles.statDivider} />
+              <StatCard value={stats.rating > 0 ? `★${stats.rating.toFixed(1)}` : '—'} label="Rating" />
+            </>
           ) : (
             <>
-              <StatCard value={stats.bookings} label="Bookings" />
+              <StatCard value={stats.bookings}  label="Bookings"  />
               <View style={styles.statDivider} />
-              <StatCard value={stats.listings} label="Listings" />
+              <StatCard value="Guest"           label="Account"   />
               <View style={styles.statDivider} />
-              <StatCard
-                value={stats.rating > 0 ? `★${stats.rating.toFixed(1)}` : '—'}
-                label="Avg rating"
-              />
+              <StatCard value={isVerified ? '✓' : '—'} label="Verified" />
             </>
           )}
         </View>
 
-        {/* ── Earnings chip (only if host has earnings) ── */}
-        {stats.earnings > 0 && (
+        {/* ── Earnings (host only) ── */}
+        {isHost && stats.earnings > 0 && (
           <View style={styles.earningsBanner}>
             <Feather name="trending-up" size={16} color={Colors.teal} />
             <AppText variant="label" weight="bold" color={Colors.teal} style={{ marginLeft: 6 }}>
@@ -373,15 +302,30 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* ── Become a Host card (guest only) ── */}
+        {!isHost && (
+          <TouchableOpacity
+            style={styles.becomeHostCard}
+            onPress={() => router.push('/become-host')}
+            activeOpacity={0.88}
+          >
+            <View style={styles.becomeHostLeft}>
+              <AppText style={{ fontSize: 36 }}>🏠</AppText>
+            </View>
+            <View style={{ flex: 1, marginLeft: Spacing.md }}>
+              <AppText variant="label" weight="extrabold">Become a Host</AppText>
+              <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
+                Earn extra income from your parking, room, vehicle, or equipment.
+              </AppText>
+            </View>
+            <Feather name="chevron-right" size={18} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
+
         {/* ── Settings sections ── */}
-        {SETTINGS_SECTIONS.map(section => (
+        {SECTIONS.map(section => (
           <View key={section.title}>
-            <AppText
-              variant="overline"
-              weight="bold"
-              color={Colors.subtle}
-              style={styles.sectionTitle}
-            >
+            <AppText variant="overline" weight="bold" color={Colors.subtle} style={styles.sectionTitle}>
               {section.title}
             </AppText>
             <View style={styles.settingsCard}>
@@ -395,19 +339,13 @@ export default function ProfileScreen() {
                     <View style={styles.settingsIcon}>
                       <Feather name={item.icon as any} size={16} color={Colors.muted} />
                     </View>
-                    <AppText
-                      variant="label"
-                      weight="medium"
-                      style={{ flex: 1, marginLeft: Spacing.md }}
-                    >
+                    <AppText variant="label" weight="medium" style={{ flex: 1, marginLeft: Spacing.md }}>
                       {item.label}
                     </AppText>
 
                     {'badge' in item && item.badge && !isVerified && (
                       <View style={styles.requiredBadge}>
-                        <AppText variant="caption" weight="bold" color={Colors.primary}>
-                          {item.badge}
-                        </AppText>
+                        <AppText variant="caption" weight="bold" color={Colors.primary}>Required</AppText>
                       </View>
                     )}
 
@@ -420,6 +358,7 @@ export default function ProfileScreen() {
                         style={{ marginLeft: Spacing.sm }}
                       />
                     ) : (
+                      !('badge' in item && item.badge && !isVerified) &&
                       <Feather name="chevron-right" size={16} color={Colors.subtle} />
                     )}
                   </TouchableOpacity>
@@ -430,31 +369,16 @@ export default function ProfileScreen() {
         ))}
 
         {/* ── Sign out ── */}
-        <TouchableOpacity
-          style={styles.signOutBtn}
-          onPress={handleSignOut}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
           <Feather name="log-out" size={16} color={Colors.error} />
-          <AppText
-            variant="label"
-            weight="bold"
-            color={Colors.error}
-            style={{ marginLeft: Spacing.sm }}
-          >
+          <AppText variant="label" weight="bold" color={Colors.error} style={{ marginLeft: Spacing.sm }}>
             Sign out
           </AppText>
         </TouchableOpacity>
 
-        <AppText
-          variant="caption"
-          color={Colors.subtle}
-          center
-          style={{ marginTop: Spacing.sm }}
-        >
+        <AppText variant="caption" color={Colors.subtle} center style={{ marginTop: Spacing.sm }}>
           Rentapp v1.0.0
         </AppText>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -463,137 +387,155 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: {
-    padding: Spacing.xl,
-    paddingBottom: Spacing['5xl'],
-    gap: Spacing.lg,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  safe:   { flex: 1, backgroundColor: Colors.bg },
+  scroll: { padding: Spacing.xl, paddingBottom: Spacing['5xl'], gap: Spacing.lg },
+  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   profileHeader: {
     backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    alignItems: 'center',
+    borderRadius:    Radius.lg,
+    padding:         Spacing.xl,
+    alignItems:      'center',
     ...Shadow.sm,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width:           80,
+    height:          80,
+    borderRadius:    40,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems:      'center',
+    justifyContent:  'center',
+    position:        'relative',
   },
   editAvatarBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    position:        'absolute',
+    bottom:          0,
+    right:           0,
+    width:           26,
+    height:          26,
+    borderRadius:    13,
     backgroundColor: Colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.white,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderWidth:     2,
+    borderColor:     Colors.white,
   },
-
+  hostBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   Colors.primaryLight,
+    borderRadius:      Radius.full,
+    paddingVertical:   5,
+    paddingHorizontal: 12,
+    marginTop:         Spacing.sm,
+    borderWidth:       1,
+    borderColor:       Colors.primary + '30',
+  },
   verifyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: Radius.md,
-    paddingVertical: 10,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   '#FFFBEB',
+    borderRadius:      Radius.md,
+    paddingVertical:   10,
     paddingHorizontal: 14,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    width: '100%',
+    marginTop:         Spacing.md,
+    borderWidth:       1,
+    borderColor:       '#FDE68A',
+    width:             '100%',
   },
   verifiedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.tealLight,
-    borderRadius: Radius.full,
-    paddingVertical: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   Colors.tealLight,
+    borderRadius:      Radius.full,
+    paddingVertical:   8,
     paddingHorizontal: 14,
-    marginTop: Spacing.md,
+    marginTop:         Spacing.md,
   },
 
   statsRow: {
-    flexDirection: 'row',
+    flexDirection:   'row',
     backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    alignItems: 'center',
-    minHeight: 72,
+    borderRadius:    Radius.lg,
+    padding:         Spacing.lg,
+    alignItems:      'center',
+    minHeight:       72,
     ...Shadow.sm,
   },
-  statCard: { flex: 1, alignItems: 'center' },
+  statCard:    { flex: 1, alignItems: 'center' },
   statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
 
   earningsBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
     backgroundColor: Colors.tealLight,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+    borderRadius:    Radius.md,
+    padding:         Spacing.md,
   },
 
-  sectionTitle: {
-    marginBottom: Spacing.sm,
-    paddingLeft: Spacing.xs,
+  becomeHostCard: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: Colors.white,
+    borderRadius:    Radius.lg,
+    padding:         Spacing.lg,
+    borderWidth:     1.5,
+    borderColor:     Colors.primary + '40',
+    ...Shadow.sm,
   },
+  becomeHostLeft: {
+    width:           60,
+    height:          60,
+    borderRadius:    Radius.md,
+    backgroundColor: Colors.primaryLight,
+    alignItems:      'center',
+    justifyContent:  'center',
+    flexShrink:      0,
+  },
+
+  sectionTitle:  { marginBottom: Spacing.sm, paddingLeft: Spacing.xs },
   settingsCard: {
     backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
+    borderRadius:    Radius.lg,
+    overflow:        'hidden',
     ...Shadow.sm,
   },
   settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection:     'row',
+    alignItems:        'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical:   Spacing.md,
   },
   settingsIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width:           34,
+    height:          34,
+    borderRadius:    10,
     backgroundColor: Colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   itemDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
+    height:           1,
+    backgroundColor:  Colors.border,
     marginHorizontal: Spacing.lg,
   },
   requiredBadge: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radius.full,
-    paddingVertical: 3,
+    backgroundColor:   Colors.primaryLight,
+    borderRadius:      Radius.full,
+    paddingVertical:   3,
     paddingHorizontal: 8,
-    marginRight: Spacing.sm,
+    marginRight:       Spacing.sm,
   },
-
   signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
     backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
+    borderRadius:    Radius.lg,
     paddingVertical: Spacing.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.error,
+    borderWidth:     1.5,
+    borderColor:     Colors.error,
     ...Shadow.sm,
   },
 });
