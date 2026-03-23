@@ -5,12 +5,19 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { AppText } from '@/components/ui/AppText';
-import { TOP_HOSTS } from '@/components/explore/BannerCarousel';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+
+const TOP_HOSTS_SEED = [
+  { id:'h1', name:'Mia R.',   initials:'MR', offers:28, color:'#FF6B35', accent:'#FFC2A4', rating:4.8 },
+  { id:'h2', name:'Carlo D.', initials:'CD', offers:22, color:'#0D9E75', accent:'#A7E7D6', rating:4.7 },
+  { id:'h3', name:'Lia P.',   initials:'LP', offers:19, color:'#534AB7', accent:'#BCB7EE', rating:4.9 },
+  { id:'h4', name:'Josh T.',  initials:'JT', offers:16, color:'#C0480A', accent:'#F0B89A', rating:4.6 },
+  { id:'h5', name:'Ana G.',   initials:'AG', offers:25, color:'#1A1A2E', accent:'#AFAFC4', rating:4.8 },
+] as const;
 
 // Extended host list for this screen
 const ALL_HOSTS = [
-  ...TOP_HOSTS,
+  ...TOP_HOSTS_SEED,
   { id:'h6', name:'Ben A.',   initials:'BA', offers:14, color:'#2E7D52', accent:'#8FD4B0', rating:4.3 },
   { id:'h7', name:'Sarah L.', initials:'SL', offers:41, color:'#7B3F8C', accent:'#CDA8DC', rating:4.9 },
   { id:'h8', name:'Nico P.',  initials:'NP', offers:11, color:'#1A6E8C', accent:'#8AC8DC', rating:5.0 },

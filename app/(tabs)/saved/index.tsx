@@ -1,78 +1,55 @@
-//app/(tabs)/saved/index.tsx
-import { useState } from 'react';
+// app/(tabs)/saved/index.tsx
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { AppText } from '@/components/ui/AppText';
+import { useSaved } from '@/hooks/useBookings';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+import type { SavedListingRow } from '@/lib/bookingsService';
 
-// ─── Mock saved listings ──────────────────────────────────────────────────────
+// ─── Category helpers ─────────────────────────────────────────────────────────
 
-const INITIAL_SAVED = [
-  {
-    id:          '2',
-    category:    'vehicle',
-    title:       'Toyota Vios 2022 · Automatic',
-    location:    'Matina, Davao City',
-    price:       1500,
-    priceUnit:   'day',
-    rating:      4.7,
-    reviewCount: 22,
-    isVerified:  true,
-    emoji:       '🚗',
-    bgColor:     '#E8E4DC',
-    hostName:    'Ana S.',
-  },
-  {
-    id:          '3',
-    category:    'room',
-    title:       'Private Room · Poblacion District',
-    location:    'Claveria St, Davao City',
-    price:       800,
-    priceUnit:   'night',
-    rating:      4.8,
-    reviewCount: 54,
-    isVerified:  true,
-    emoji:       '🏠',
-    bgColor:     '#EAF0E8',
-    hostName:    'Carlo M.',
-  },
-  {
-    id:          '5',
-    category:    'venue',
-    title:       'Rooftop Event Space · City View',
-    location:    'Damosa Gateway, Davao',
-    price:       8000,
-    priceUnit:   'day',
-    rating:      4.6,
-    reviewCount: 17,
-    isVerified:  true,
-    emoji:       '🎪',
-    bgColor:     '#F0E8E8',
-    hostName:    'Gina T.',
-  },
-];
+const CATEGORY_EMOJI: Record<string, string> = {
+  parking:      '🅿️',
+  room:         '🏠',
+  vehicle:      '🚗',
+  equipment:    '📷',
+  event_venue:  '🎪',
+  meeting_room: '🏢',
+  storage:      '📦',
+};
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+const CATEGORY_BG: Record<string, string> = {
+  parking:      '#F0EDE6',
+  room:         '#EAF0E8',
+  vehicle:      '#E8E4DC',
+  equipment:    '#EDE8F0',
+  event_venue:  '#F0E8E8',
+  meeting_room: '#E8EEF0',
+  storage:      '#F0EDE6',
+};
+
+// ─── Saved card ───────────────────────────────────────────────────────────────
 
 function SavedCard({
   item,
   onRemove,
-  onBook,
 }: {
-  item: typeof INITIAL_SAVED[number];
+  item:     SavedListingRow;
   onRemove: () => void;
-  onBook:   () => void;
 }) {
+  const emoji = CATEGORY_EMOJI[item.category] ?? '📦';
+  const bg    = CATEGORY_BG[item.category]    ?? '#F0EDE6';
+
   return (
     <View style={styles.card}>
       {/* Image area */}
-      <View style={[styles.cardImg, { backgroundColor: item.bgColor }]}>
-        <AppText style={{ fontSize: 44 }}>{item.emoji}</AppText>
+      <View style={[styles.cardImg, { backgroundColor: bg }]}>
+        <AppText style={{ fontSize: 44 }}>{emoji}</AppText>
 
-        {/* Remove button */}
         <TouchableOpacity
           style={styles.removeBtn}
           onPress={onRemove}
@@ -80,9 +57,18 @@ function SavedCard({
         >
           <Feather name="heart" size={18} color="#FF4444" />
         </TouchableOpacity>
+
+        {item.instant_book && (
+          <View style={styles.instantBadge}>
+            <Feather name="zap" size={10} color={Colors.white} />
+            <AppText variant="caption" weight="bold" color={Colors.white} style={{ fontSize: 9, marginLeft: 3 }}>
+              Instant
+            </AppText>
+          </View>
+        )}
       </View>
 
-      {/* Info */}
+      {/* Body */}
       <View style={styles.cardBody}>
         <AppText
           variant="caption"
@@ -90,40 +76,30 @@ function SavedCard({
           color={Colors.primary}
           style={{ textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}
         >
-          {item.category}
+          {item.category.replace('_', ' ')}
         </AppText>
 
-        <AppText
-          variant="bodyLg"
-          weight="bold"
-          numberOfLines={1}
-          style={{ marginBottom: 5 }}
-        >
+        <AppText variant="bodyLg" weight="bold" numberOfLines={1} style={{ marginBottom: 5 }}>
           {item.title}
         </AppText>
 
         <View style={styles.locationRow}>
           <Feather name="map-pin" size={11} color={Colors.subtle} />
           <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 4 }}>
-            {item.location}
+            {item.city}
           </AppText>
         </View>
 
-        {item.isVerified && (
+        {item.host_is_verified && (
           <View style={styles.verifiedRow}>
             <View style={styles.verifiedBadge}>
               <Feather name="check" size={9} color={Colors.teal} />
-              <AppText
-                variant="caption"
-                weight="bold"
-                color={Colors.teal}
-                style={{ marginLeft: 3 }}
-              >
+              <AppText variant="caption" weight="bold" color={Colors.teal} style={{ marginLeft: 3 }}>
                 ID Verified
               </AppText>
             </View>
             <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 6 }}>
-              by {item.hostName}
+              by {item.host_name}
             </AppText>
           </View>
         )}
@@ -133,27 +109,29 @@ function SavedCard({
           <View>
             <View style={styles.priceRow}>
               <AppText variant="h3" weight="extrabold">
-                ₱{item.price.toLocaleString()}
+                ₱{Number(item.price).toLocaleString()}
               </AppText>
               <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 3 }}>
-                / {item.priceUnit}
+                / {item.price_unit}
               </AppText>
             </View>
-            <View style={styles.ratingRow}>
-              <Feather name="star" size={11} color="#FFB800" />
-              <AppText variant="caption" weight="bold" style={{ marginLeft: 3 }}>
-                {item.rating}
-              </AppText>
-              <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 2 }}>
-                ({item.reviewCount})
-              </AppText>
-            </View>
+            {item.avg_rating > 0 && (
+              <View style={styles.ratingRow}>
+                <Feather name="star" size={11} color="#FFB800" />
+                <AppText variant="caption" weight="bold" style={{ marginLeft: 3 }}>
+                  {item.avg_rating.toFixed(1)}
+                </AppText>
+                {item.review_count > 0 && (
+                  <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 2 }}>
+                    ({item.review_count})
+                  </AppText>
+                )}
+              </View>
+            )}
           </View>
 
-          <TouchableOpacity style={styles.bookBtn} onPress={onBook} activeOpacity={0.85}>
-            <AppText variant="label" weight="bold" color={Colors.white}>
-              Book now
-            </AppText>
+          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85}>
+            <AppText variant="label" weight="bold" color={Colors.white}>Book now</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -164,39 +142,50 @@ function SavedCard({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function SavedScreen() {
-  const [savedItems, setSavedItems] = useState(INITIAL_SAVED);
+  const { saved, isLoading, isRefreshing, error, refresh, toggleSave } = useSaved();
 
-  function removeItem(id: string) {
-    setSavedItems(prev => prev.filter(i => i.id !== id));
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <AppText variant="h2" weight="extrabold">Saved</AppText>
+        </View>
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <AppText variant="body" color={Colors.muted} style={{ marginTop: Spacing.md }}>
+            Loading saved listings…
+          </AppText>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <AppText variant="h2" weight="extrabold">Saved</AppText>
         <AppText variant="label" color={Colors.muted} style={{ marginTop: 2 }}>
-          {savedItems.length} listing{savedItems.length !== 1 ? 's' : ''} saved
+          {saved.length} listing{saved.length !== 1 ? 's' : ''} saved
         </AppText>
       </View>
 
-      {savedItems.length === 0 ? (
+      {error ? (
+        <View style={styles.centerState}>
+          <AppText style={{ fontSize: 40 }}>⚠️</AppText>
+          <AppText variant="h3" weight="bold" center style={{ marginTop: Spacing.md }}>
+            Something went wrong
+          </AppText>
+          <TouchableOpacity style={styles.retryBtn} onPress={refresh}>
+            <AppText variant="label" weight="bold" color={Colors.primary}>Try again</AppText>
+          </TouchableOpacity>
+        </View>
+      ) : saved.length === 0 ? (
         <View style={styles.emptyState}>
           <AppText style={{ fontSize: 56 }}>🤍</AppText>
-          <AppText
-            variant="h2"
-            weight="extrabold"
-            center
-            style={{ marginTop: Spacing.lg }}
-          >
+          <AppText variant="h2" weight="extrabold" center style={{ marginTop: Spacing.lg }}>
             Nothing saved yet
           </AppText>
-          <AppText
-            variant="body"
-            color={Colors.muted}
-            center
-            style={{ marginTop: Spacing.sm, maxWidth: 260 }}
-          >
+          <AppText variant="body" color={Colors.muted} center style={{ marginTop: Spacing.sm, maxWidth: 260 }}>
             Tap the heart icon on any listing to save it here for later.
           </AppText>
         </View>
@@ -204,25 +193,26 @@ export default function SavedScreen() {
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refresh}
+              tintColor={Colors.primary}
+            />
+          }
         >
-          {/* Info banner */}
           <View style={styles.infoBanner}>
             <Feather name="info" size={14} color={Colors.teal} />
-            <AppText
-              variant="caption"
-              color={Colors.teal}
-              style={{ marginLeft: 8, flex: 1 }}
-            >
+            <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>
               Tap the heart to remove a listing from your saved collection.
             </AppText>
           </View>
 
-          {savedItems.map(item => (
+          {saved.map(item => (
             <SavedCard
               key={item.id}
               item={item}
-              onRemove={() => removeItem(item.id)}
-              onBook={() => {}}
+              onRemove={() => toggleSave(item.listing_id)}
             />
           ))}
         </ScrollView>
@@ -242,6 +232,21 @@ const styles = StyleSheet.create({
     paddingVertical:   Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+
+  centerState: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    padding:        Spacing.xl,
+  },
+  retryBtn: {
+    marginTop:         Spacing.lg,
+    paddingVertical:   10,
+    paddingHorizontal: 24,
+    borderRadius:      Radius.full,
+    borderWidth:       1.5,
+    borderColor:       Colors.primary,
   },
 
   emptyState: {
@@ -289,19 +294,20 @@ const styles = StyleSheet.create({
     justifyContent:  'center',
     ...Shadow.sm,
   },
-  cardBody: {
-    padding: Spacing.lg,
+  instantBadge: {
+    position:          'absolute',
+    top:               12,
+    left:              12,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   Colors.teal,
+    borderRadius:      Radius.full,
+    paddingVertical:   4,
+    paddingHorizontal: 8,
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginBottom:  Spacing.xs,
-  },
-  verifiedRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginBottom:  Spacing.sm,
-  },
+  cardBody:     { padding: Spacing.lg },
+  locationRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  verifiedRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
   verifiedBadge: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -319,15 +325,8 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
     marginTop:      Spacing.sm,
   },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems:    'baseline',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginTop:     2,
-  },
+  priceRow:  { flexDirection: 'row', alignItems: 'baseline' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   bookBtn: {
     backgroundColor:   Colors.primary,
     borderRadius:      Radius.md,
