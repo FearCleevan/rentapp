@@ -73,6 +73,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="listings/create" options={{ headerShown: false }} />
             </Stack>
           </AuthGuard>
         </PaperProvider>

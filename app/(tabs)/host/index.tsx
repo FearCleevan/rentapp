@@ -6,7 +6,7 @@ import {
   Switch, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -280,6 +280,7 @@ function ListingRow({
 }
 
 function HostDashboard() {
+  const router = useRouter(); 
   const { user, profile } = useAuthStore();
 
   const [listings,     setListings]     = useState<any[]>([]);
@@ -430,7 +431,7 @@ function HostDashboard() {
 
         <AppButton
           label="+ Add new listing"
-          onPress={() => {}}
+          onPress={() => router.push('/listings/create')}
           style={{ marginTop: Spacing.lg }}
         />
       </ScrollView>
