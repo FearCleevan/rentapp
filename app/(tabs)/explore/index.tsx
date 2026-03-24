@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 
 import { AppText }            from '@/components/ui/AppText';
 import { CategoryIcon, CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
@@ -31,12 +32,17 @@ function RealListingCard({
   onPress: () => void;
 }) {
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
+  const imageUrl = item.cover_photo_url ?? item.photos?.[0] ?? null;
 
   return (
     <TouchableOpacity style={lc.card} onPress={onPress} activeOpacity={0.9}>
       {/* Image / icon area */}
       <View style={[lc.imgArea, { backgroundColor: cfg.bg }]}>
-        <Feather name={cfg.icon} size={44} color={cfg.color} />
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={lc.photo} contentFit="cover" />
+        ) : (
+          <Feather name={cfg.icon} size={44} color={cfg.color} />
+        )}
 
         {item.instant_book && (
           <View style={lc.instantBadge}>
@@ -102,6 +108,7 @@ const lc = StyleSheet.create({
   card:      { backgroundColor: Colors.white, borderRadius: Radius.lg, overflow: 'hidden', flex: 1,
                shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   imgArea:   { height: 130, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  photo: { width: '100%', height: '100%' },
   instantBadge: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center',
                   backgroundColor: Colors.teal, borderRadius: Radius.full, paddingVertical: 3, paddingHorizontal: 6 },
   heartBtn:  { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14,
@@ -290,6 +297,12 @@ export default function ExploreScreen() {
             amenities:   selectedListing.amenities ?? [],
             emoji:       '📦',
             bgColor:     CATEGORY_CONFIG[selectedListing.category]?.bg ?? '#F0EDE6',
+            address:     selectedListing.address,
+            city:        selectedListing.city,
+            coverPhotoUrl: selectedListing.cover_photo_url,
+            photos:      selectedListing.photos ?? [],
+            userLat:     USER_LAT,
+            userLng:     USER_LNG,
             description: selectedListing.description ?? 'No description provided.',
           }}
           saved={saved.has(selectedListing.id)}

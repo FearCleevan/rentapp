@@ -1,8 +1,7 @@
-// app/listings/all.tsx
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Dimensions,
+  TextInput, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,13 +12,12 @@ import { ListingCard }        from '@/components/explore/ListingCard';
 import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
 import { RadiusFilterSheet }  from '@/components/explore/RadiusFilterSheet';
 import { CategoryPills }      from '@/components/explore/CategoryPills';
+import { CATEGORY_CONFIG }    from '@/components/ui/CategoryIcon';
 
-import {
-  LISTINGS, filterListings,
-  type Category, type Listing,
-} from '@/components/explore/exploreData';
-
-import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+import { useListings } from '@/hooks/useListings';
+import type { ListingRow } from '@/lib/listingsService';
+import type { Category } from '@/components/explore/exploreData';
+import { Colors, Spacing, Radius } from '@/constants/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIDE_PAD = Spacing.xl;
@@ -31,12 +29,18 @@ const USER_LNG = 125.6026;
 const SORT_OPTIONS = ['Nearest', 'Lowest price', 'Top rated', 'Most reviews'] as const;
 type SortOption = typeof SORT_OPTIONS[number];
 
-function sortListings(listings: Listing[], sort: SortOption): Listing[] {
+function mapUiCategoryToDb(category: Category) {
+  if (category === 'venue') return 'venue';
+  if (category === 'meeting') return 'meeting_room';
+  return category === 'all' ? undefined : category;
+}
+
+function sortListings(listings: ListingRow[], sort: SortOption): ListingRow[] {
   return [...listings].sort((a, b) => {
-    if (sort === 'Nearest')      return a.distance - b.distance;
-    if (sort === 'Lowest price') return a.price - b.price;
-    if (sort === 'Top rated')    return b.rating - a.rating;
-    if (sort === 'Most reviews') return b.reviewCount - a.reviewCount;
+    if (sort === 'Nearest') return ((a._distKm ?? Number.MAX_VALUE) - (b._distKm ?? Number.MAX_VALUE));
+    if (sort === 'Lowest price') return Number(a.price) - Number(b.price);
+    if (sort === 'Top rated') return b.avg_rating - a.avg_rating;
+    if (sort === 'Most reviews') return b.review_count - a.review_count;
     return 0;
   });
 }
@@ -48,17 +52,27 @@ export default function AllListingsScreen() {
   const [category,      setCategory]      = useState<Category>('all');
   const [radiusKm,      setRadiusKm]      = useState(10);
   const [saved,         setSaved]         = useState<Set<string>>(new Set());
-  const [selected,      setSelected]      = useState<Listing | null>(null);
+  const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const [filterVisible, setFilterVisible] = useState(false);
   const [sort,          setSort]          = useState<SortOption>('Nearest');
   const [pendingRadius,   setPendingRadius]   = useState(10);
   const [pendingCategory, setPendingCategory] = useState<Category>('all');
 
-  const base     = filterListings(LISTINGS, category, search, radiusKm, USER_LAT, USER_LNG);
-  const filtered = sortListings(base, sort);
+  const filters = useMemo(() => ({
+    category: mapUiCategoryToDb(category) as any,
+    search,
+    radiusKm,
+    userLat: USER_LAT,
+    userLng: USER_LNG,
+    sortBy: 'distance' as const,
+  }), [category, search, radiusKm]);
+
+  const { listings, isLoading, error } = useListings(filters);
+  const filtered = useMemo(() => sortListings(listings, sort), [listings, sort]);
+  const selected = selectedId ? filtered.find((l) => l.id === selectedId) ?? null : null;
 
   function toggleSave(id: string) {
-    setSaved(prev => {
+    setSaved((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -67,8 +81,6 @@ export default function AllListingsScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-
-      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.75}>
           <Feather name="arrow-left" size={20} color={Colors.ink} />
@@ -84,13 +96,12 @@ export default function AllListingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={s.searchWrap}>
         <View style={s.searchBar}>
           <Feather name="search" size={15} color={Colors.subtle} />
           <TextInput
             style={s.searchInput}
-            placeholder="Search listings…"
+            placeholder="Search listings..."
             placeholderTextColor={Colors.subtle}
             value={search}
             onChangeText={setSearch}
@@ -103,12 +114,10 @@ export default function AllListingsScreen() {
         </View>
       </View>
 
-      {/* Category pills */}
       <View style={s.pillsWrap}>
         <CategoryPills active={category} onChange={setCategory} />
       </View>
 
-      {/* Sort strip */}
       <View style={s.sortWrap}>
         {SORT_OPTIONS.map(opt => (
           <TouchableOpacity
@@ -128,7 +137,6 @@ export default function AllListingsScreen() {
         ))}
       </View>
 
-      {/* Result count */}
       <View style={s.countRow}>
         <AppText variant="caption" color={Colors.muted}>
           <AppText variant="caption" weight="bold" color={Colors.ink}>{filtered.length}</AppText>
@@ -136,36 +144,68 @@ export default function AllListingsScreen() {
         </AppText>
       </View>
 
-      {/* Grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ gap:CARD_GAP, marginBottom:CARD_GAP }}
-        contentContainerStyle={s.grid}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={{ flex:1 }}>
-            <ListingCard
-              item={item}
-              saved={saved.has(item.id)}
-              onSave={() => toggleSave(item.id)}
-              onPress={() => setSelected(item)}
-            />
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <AppText style={{ fontSize:40 }}>🔍</AppText>
-            <AppText variant="h3" weight="bold" center style={{ marginTop:Spacing.md }}>
-              No results
-            </AppText>
-            <AppText variant="body" color={Colors.muted} center style={{ marginTop:Spacing.sm }}>
-              Try a wider radius or different category.
-            </AppText>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ gap:CARD_GAP, marginBottom:CARD_GAP }}
+          contentContainerStyle={s.grid}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const hostAvatar = item.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
+            return (
+              <View style={{ flex:1 }}>
+                <ListingCard
+                  item={{
+                    id: item.id,
+                    category: item.category as any,
+                    title: item.title,
+                    location: item.address,
+                    address: item.address,
+                    city: item.city,
+                    distance: item._distKm ?? 0,
+                    lat: item.lat,
+                    lng: item.lng,
+                    price: Number(item.price),
+                    priceUnit: item.price_unit,
+                    rating: item.avg_rating,
+                    reviewCount: item.review_count,
+                    isVerified: item.host_is_verified,
+                    instantBook: item.instant_book,
+                    hostName: item.host_name,
+                    hostAvatar,
+                    amenities: item.amenities ?? [],
+                    emoji: '📦',
+                    bgColor: CATEGORY_CONFIG[item.category]?.bg ?? '#F0EDE6',
+                    coverPhotoUrl: item.cover_photo_url,
+                    photos: item.photos ?? [],
+                    description: item.description ?? 'No description provided.',
+                  }}
+                  saved={saved.has(item.id)}
+                  onSave={() => toggleSave(item.id)}
+                  onPress={() => setSelectedId(item.id)}
+                />
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <AppText style={{ fontSize:40 }}>🔍</AppText>
+              <AppText variant="h3" weight="bold" center style={{ marginTop:Spacing.md }}>
+                {error ? 'Something went wrong' : 'No results'}
+              </AppText>
+              <AppText variant="body" color={Colors.muted} center style={{ marginTop:Spacing.sm }}>
+                {error || 'Try a wider radius or different category.'}
+              </AppText>
+            </View>
+          }
+        />
+      )}
 
       <RadiusFilterSheet
         visible={filterVisible}
@@ -179,11 +219,37 @@ export default function AllListingsScreen() {
       />
 
       <ListingDetailSheet
-        listing={selected}
+        listing={selected ? {
+          id:          selected.id,
+          category:    selected.category as any,
+          title:       selected.title,
+          location:    selected.address,
+          address:     selected.address,
+          city:        selected.city,
+          distance:    selected._distKm ?? 0,
+          lat:         selected.lat,
+          lng:         selected.lng,
+          userLat:     USER_LAT,
+          userLng:     USER_LNG,
+          price:       Number(selected.price),
+          priceUnit:   selected.price_unit,
+          rating:      selected.avg_rating,
+          reviewCount: selected.review_count,
+          isVerified:  selected.host_is_verified,
+          instantBook: selected.instant_book,
+          hostName:    selected.host_name,
+          hostAvatar:  selected.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+          amenities:   selected.amenities ?? [],
+          emoji:       '📦',
+          bgColor:     CATEGORY_CONFIG[selected.category]?.bg ?? '#F0EDE6',
+          coverPhotoUrl: selected.cover_photo_url,
+          photos:      selected.photos ?? [],
+          description: selected.description ?? 'No description provided.',
+        } : null}
         saved={selected ? saved.has(selected.id) : false}
         onSave={() => selected && toggleSave(selected.id)}
-        onClose={() => setSelected(null)}
-        onBook={() => setSelected(null)}
+        onClose={() => setSelectedId(null)}
+        onBook={() => setSelectedId(null)}
       />
     </SafeAreaView>
   );
@@ -204,4 +270,5 @@ const s = StyleSheet.create({
   countRow:      { paddingHorizontal:SIDE_PAD, paddingVertical:Spacing.sm },
   grid:          { paddingHorizontal:SIDE_PAD, paddingBottom:Spacing['5xl'] },
   empty:         { alignItems:'center', paddingVertical:Spacing['5xl'] },
+  loadingWrap: { paddingVertical: Spacing['5xl'], alignItems: 'center', justifyContent: 'center' },
 });

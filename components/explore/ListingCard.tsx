@@ -1,8 +1,10 @@
 // components/explore/ListingCard.tsx
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { AppText } from '@/components/ui/AppText';
 import type { Listing } from './exploreData';
+import { CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
 interface Props {
@@ -13,11 +15,18 @@ interface Props {
 }
 
 export function ListingCard({ item, saved, onSave, onPress }: Props) {
+  const imageUrl = item.coverPhotoUrl ?? item.photos?.[0] ?? null;
+  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      {/* Image / emoji area */}
-      <View style={[styles.imgArea, { backgroundColor: item.bgColor }]}>
-        <AppText style={styles.emoji}>{item.emoji}</AppText>
+      {/* Image / fallback area */}
+      <View style={[styles.imgArea, { backgroundColor: item.bgColor || cfg.bg }]}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.photo} contentFit="cover" />
+        ) : (
+          <AppText style={styles.emoji}>{item.emoji}</AppText>
+        )}
 
         {/* Instant book badge */}
         {item.instantBook && (
@@ -130,7 +139,9 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
     position:       'relative',
+    overflow:       'hidden',
   },
+  photo: { width: '100%', height: '100%' },
   emoji: { fontSize: 40 },
 
   instantBadge: {

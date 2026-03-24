@@ -32,6 +32,7 @@ const CATEGORY_CONFIG: Record<string, {
   room:         { icon: 'home',               iconLib: 'feather', color: '#0D9E75', bg: '#E8F8F3' },
   vehicle:      { icon: 'truck',              iconLib: 'feather', color: '#534AB7', bg: '#EEEDFE' },
   equipment:    { icon: 'camera',             iconLib: 'feather', color: '#854F0B', bg: '#FAEEDA' },
+  venue:        { icon: 'calendar',           iconLib: 'feather', color: '#C0480A', bg: '#FAECE7' },
   event_venue:  { icon: 'calendar',           iconLib: 'feather', color: '#C0480A', bg: '#FAECE7' },
   meeting_room: { icon: 'briefcase',          iconLib: 'feather', color: '#1A6E8C', bg: '#DDE8EC' },
   storage:      { icon: 'package',            iconLib: 'feather', color: '#5F5E5A', bg: '#F1EFE8' },
@@ -84,7 +85,7 @@ function BecomeHostScreen() {
     { category: 'room',         label: 'Rooms',          price: '₱500–2k/day'   },
     { category: 'vehicle',      label: 'Vehicles',       price: '₱800–3k/day'   },
     { category: 'equipment',    label: 'Equipment',      price: '₱300–2k/day'   },
-    { category: 'event_venue',  label: 'Venues',         price: '₱3k–20k/day'   },
+    { category: 'venue',        label: 'Venues',         price: '₱3k–20k/day'   },
     { category: 'meeting_room', label: 'Meeting rooms',  price: '₱300–800/hr'   },
   ];
 

@@ -104,7 +104,7 @@ export async function fetchFeaturedListings(limit = 6) {
   try {
     const { data, error } = await supabase
       .from('listings')
-      .select('id,host_id,category,title,address,city,lat,lng,price,price_unit,cover_photo_url,avg_rating,review_count,instant_book,is_featured,created_at')
+      .select('id,host_id,category,title,address,city,lat,lng,price,price_unit,cover_photo_url,photos,avg_rating,review_count,instant_book,is_featured,created_at')
       .eq('status', 'active')
       .or('is_featured.eq.true,avg_rating.gte.4.5')
       .order('avg_rating', { ascending: false })
@@ -119,7 +119,7 @@ export async function fetchNewListings(limit = 6) {
   try {
     const { data, error } = await supabase
       .from('listings')
-      .select('id,host_id,category,title,address,city,lat,lng,price,price_unit,avg_rating,review_count,instant_book,created_at')
+      .select('id,host_id,category,title,address,city,lat,lng,price,price_unit,cover_photo_url,photos,avg_rating,review_count,instant_book,created_at')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(limit);

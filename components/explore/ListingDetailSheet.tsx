@@ -1,11 +1,12 @@
 // components/explore/ListingDetailSheet.tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View, ScrollView, TouchableOpacity,
   StyleSheet, Modal, Dimensions,
   TouchableWithoutFeedback, Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { AppText } from '@/components/ui/AppText';
 import { MapPreview } from './MapPreview';
 import type { Listing } from './exploreData';
@@ -87,12 +88,20 @@ interface Props {
 export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: Props) {
   const [expanded,     setExpanded]     = useState(false);
   const [showAllRevs,  setShowAllRevs]  = useState(false);
+  const [imageIndex,   setImageIndex]   = useState(0);
+
+  useEffect(() => {
+    if (listing) setImageIndex(0);
+  }, [listing?.id]);
 
   if (!listing) return null;
 
   const descPreview = listing.description.slice(0, 120);
   const needsExpand = listing.description.length > 120;
   const visibleRevs = showAllRevs ? MOCK_REVIEWS : MOCK_REVIEWS.slice(0, 2);
+  const images = (listing.photos && listing.photos.length > 0)
+    ? listing.photos
+    : (listing.coverPhotoUrl ? [listing.coverPhotoUrl] : []);
   const ratDist     = [
     { stars:5, count: Math.round(listing.reviewCount * 0.75) },
     { stars:4, count: Math.round(listing.reviewCount * 0.15) },
@@ -134,7 +143,23 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
 
             {/* Hero */}
             <View style={[s.hero, { backgroundColor: listing.bgColor }]}>
-              <AppText style={{ fontSize:80 }}>{listing.emoji}</AppText>
+              {images.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const idx = Math.round(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
+                    setImageIndex(Math.max(0, Math.min(images.length - 1, idx)));
+                  }}
+                >
+                  {images.map((uri) => (
+                    <Image key={uri} source={{ uri }} style={s.heroImage} contentFit="cover" />
+                  ))}
+                </ScrollView>
+              ) : (
+                <AppText style={{ fontSize:80 }}>{listing.emoji}</AppText>
+              )}
               <TouchableOpacity style={s.closeBtn} onPress={onClose}>
                 <Feather name="x" size={18} color={Colors.ink} />
               </TouchableOpacity>
@@ -148,8 +173,22 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                     {listing.instantBook ? 'Instant Book' : 'Request to Book'}
                   </AppText>
                 </View>
+                {images.length > 1 && (
+                  <View style={s.heroBadge}>
+                    <AppText variant="caption" weight="bold" color={Colors.white}>
+                      {imageIndex + 1}/{images.length}
+                    </AppText>
+                  </View>
+                )}
               </View>
             </View>
+            {images.length > 1 && (
+              <View style={s.imageDots}>
+                {images.map((uri, i) => (
+                  <View key={uri} style={[s.imageDot, i === imageIndex && s.imageDotActive]} />
+                ))}
+              </View>
+            )}
 
             {/* Title */}
             <View style={s.section}>
@@ -253,11 +292,20 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                 <Feather name="map-pin" size={13} color={Colors.subtle} />
                 <AppText variant="body" color={Colors.muted} style={{ marginLeft:6, flex:1 }}>{listing.location}</AppText>
               </View>
+              <View style={{ flexDirection:'row', alignItems:'center', marginBottom:Spacing.md }}>
+                <Feather name="crosshair" size={13} color={Colors.primary} />
+                <AppText variant="caption" color={Colors.primary} style={{ marginLeft:6 }}>
+                  Tap "Get directions" below to navigate from your current location
+                </AppText>
+              </View>
               <MapPreview
                 listingLat={listing.lat}
                 listingLng={listing.lng}
                 listingEmoji={listing.emoji}
                 listingTitle={listing.title}
+                listingAddress={listing.address ?? listing.location}
+                userLat={listing.userLat}
+                userLng={listing.userLng}
               />
             </View>
 
@@ -374,6 +422,7 @@ const s = StyleSheet.create({
   scrollContent: { flexGrow:1 },
 
   hero: { height:220, alignItems:'center', justifyContent:'center', position:'relative' },
+  heroImage: { width: Dimensions.get('window').width, height: 220 },
   closeBtn: {
     position:'absolute', top:Spacing.md, left:Spacing.md,
     width:36, height:36, borderRadius:18,
@@ -388,6 +437,9 @@ const s = StyleSheet.create({
   },
   heroBadges:  { position:'absolute', bottom:Spacing.md, left:Spacing.md, flexDirection:'row', gap:6 },
   heroBadge:   { flexDirection:'row', alignItems:'center', borderRadius:Radius.full, paddingVertical:5, paddingHorizontal:10 },
+  imageDots: { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, marginTop:10 },
+  imageDot: { width:6, height:6, borderRadius:3, backgroundColor: Colors.border },
+  imageDotActive: { width:18, backgroundColor: Colors.primary },
 
   section: { paddingHorizontal:Spacing.xl, paddingVertical:Spacing.lg, borderBottomWidth:1, borderBottomColor:Colors.border },
   catLabel:    { fontSize:10, letterSpacing:0.8, marginBottom:6 },

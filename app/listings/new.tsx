@@ -1,25 +1,36 @@
-// app/listings/new.tsx
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
 
 import { AppText }            from '@/components/ui/AppText';
 import { ListingCard }        from '@/components/explore/ListingCard';
 import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
-import { LISTINGS }           from '@/components/explore/exploreData';
+import { CATEGORY_CONFIG }    from '@/components/ui/CategoryIcon';
+import { fetchNewListings, type ListingRow } from '@/lib/listingsService';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
-// Simulate "new" listings — last 4 added (by highest id)
-const NEW_LISTINGS = [...LISTINGS]
-  .sort((a, b) => parseInt(b.id) - parseInt(a.id))
-  .slice(0, 6);
+const USER_LAT = 7.0831;
+const USER_LNG = 125.6026;
 
 export default function NewListingsScreen() {
   const router = useRouter();
   const [saved,    setSaved]    = useState<Set<string>>(new Set());
-  const [selected, setSelected] = useState<typeof LISTINGS[number] | null>(null);
+  const [selected, setSelected] = useState<ListingRow | null>(null);
+  const [listings, setListings] = useState<ListingRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await fetchNewListings(12);
+      if (!mounted) return;
+      setListings(data ?? []);
+      setIsLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   function toggleSave(id: string) {
     setSaved(prev => {
@@ -29,10 +40,36 @@ export default function NewListingsScreen() {
     });
   }
 
+  const mappedSelected = useMemo(() => selected ? ({
+    id:          selected.id,
+    category:    selected.category as any,
+    title:       selected.title,
+    location:    selected.address,
+    address:     selected.address,
+    city:        selected.city,
+    distance:    selected._distKm ?? 0,
+    lat:         selected.lat,
+    lng:         selected.lng,
+    userLat:     USER_LAT,
+    userLng:     USER_LNG,
+    price:       Number(selected.price),
+    priceUnit:   selected.price_unit,
+    rating:      selected.avg_rating,
+    reviewCount: selected.review_count,
+    isVerified:  selected.host_is_verified,
+    instantBook: selected.instant_book,
+    hostName:    selected.host_name,
+    hostAvatar:  selected.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+    amenities:   selected.amenities ?? [],
+    emoji:       '📦',
+    bgColor:     CATEGORY_CONFIG[selected.category]?.bg ?? '#F0EDE6',
+    coverPhotoUrl: selected.cover_photo_url,
+    photos:      selected.photos ?? [],
+    description: selected.description ?? 'No description provided.',
+  }) : null, [selected]);
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-
-      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.75}>
           <Feather name="arrow-left" size={20} color={Colors.ink} />
@@ -43,7 +80,6 @@ export default function NewListingsScreen() {
         </View>
       </View>
 
-      {/* Info banner */}
       <View style={s.banner}>
         <View style={s.bannerIcon}>
           <Feather name="zap" size={16} color={Colors.primary} />
@@ -56,35 +92,66 @@ export default function NewListingsScreen() {
         </View>
       </View>
 
-      {/* 2-col grid */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.grid}
-      >
-        <View style={s.gridInner}>
-          {NEW_LISTINGS.map((item, idx) => (
-            <View key={item.id} style={s.cardWrap}>
-              {/* "New" badge */}
-              {idx < 3 && (
-                <View style={s.newBadge}>
-                  <AppText style={{ fontSize:9, fontWeight:'800', color:Colors.white, letterSpacing:0.5 }}>
-                    NEW
-                  </AppText>
-                </View>
-              )}
-              <ListingCard
-                item={item}
-                saved={saved.has(item.id)}
-                onSave={() => toggleSave(item.id)}
-                onPress={() => setSelected(item)}
-              />
-            </View>
-          ))}
+      {isLoading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.grid}
+        >
+          <View style={s.gridInner}>
+            {listings.map((item, idx) => {
+              const mapped = {
+                id: item.id,
+                category: item.category as any,
+                title: item.title,
+                location: item.address,
+                address: item.address,
+                city: item.city,
+                distance: item._distKm ?? 0,
+                lat: item.lat,
+                lng: item.lng,
+                price: Number(item.price),
+                priceUnit: item.price_unit,
+                rating: item.avg_rating,
+                reviewCount: item.review_count,
+                isVerified: item.host_is_verified,
+                instantBook: item.instant_book,
+                hostName: item.host_name,
+                hostAvatar: item.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+                amenities: item.amenities ?? [],
+                emoji: '📦',
+                bgColor: CATEGORY_CONFIG[item.category]?.bg ?? '#F0EDE6',
+                coverPhotoUrl: item.cover_photo_url,
+                photos: item.photos ?? [],
+                description: item.description ?? 'No description provided.',
+              };
+              return (
+                <View key={item.id} style={s.cardWrap}>
+                  {idx < 3 && (
+                    <View style={s.newBadge}>
+                      <AppText style={{ fontSize:9, fontWeight:'800', color:Colors.white, letterSpacing:0.5 }}>
+                        NEW
+                      </AppText>
+                    </View>
+                  )}
+                  <ListingCard
+                    item={mapped}
+                    saved={saved.has(item.id)}
+                    onSave={() => toggleSave(item.id)}
+                    onPress={() => setSelected(item)}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
 
       <ListingDetailSheet
-        listing={selected}
+        listing={mappedSelected}
         saved={selected ? saved.has(selected.id) : false}
         onSave={() => selected && toggleSave(selected.id)}
         onClose={() => setSelected(null)}
@@ -125,11 +192,12 @@ const s = StyleSheet.create({
   },
   grid:      { paddingHorizontal:SIDE_PAD, paddingTop:Spacing.lg, paddingBottom:Spacing['5xl'] },
   gridInner: { flexDirection:'row', flexWrap:'wrap', gap:CARD_GAP },
-  cardWrap:  { width:(1/2 * 100) + '%', position:'relative', paddingRight: CARD_GAP / 2 },
+  cardWrap:  { width:'50%', position:'relative', paddingRight: CARD_GAP / 2 },
   newBadge: {
     position:'absolute', top:8, left:8, zIndex:10,
     backgroundColor:Colors.primary,
     paddingVertical:3, paddingHorizontal:7,
     borderRadius:Radius.full,
   },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

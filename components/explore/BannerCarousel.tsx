@@ -4,6 +4,7 @@ import {
   StyleSheet, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
@@ -30,11 +31,21 @@ type FeatherName = React.ComponentProps<typeof Feather>['name'];
 function FeaturedCardImage({
   category,
   height,
+  imageUrl,
 }: {
   category: string;
   height:   number;
+  imageUrl?: string | null;
 }) {
   const cfg = CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG.storage;
+
+  if (imageUrl) {
+    return (
+      <View style={[fi.wrap, { backgroundColor: cfg.bg, height }]}>
+        <Image source={{ uri: imageUrl }} style={fi.photo} contentFit="cover" />
+      </View>
+    );
+  }
 
   return (
     <View style={[fi.wrap, { backgroundColor: cfg.bg, height }]}>
@@ -51,6 +62,7 @@ function FeaturedCardImage({
 
 const fi = StyleSheet.create({
   wrap:     { alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  photo:    { width: '100%', height: '100%' },
   circle:   { position: 'absolute', borderWidth: 1.5, borderRadius: 999 },
   circleLg: { width: 140, height: 140, top: -30, right: -30 },
   circleSm: { width: 80,  height: 80,  bottom: -20, left: 20 },
@@ -59,8 +71,15 @@ const fi = StyleSheet.create({
 
 // ─── New listing card image area ──────────────────────────────────────────────
 
-function NewCardImage({ category }: { category: string }) {
+function NewCardImage({ category, imageUrl }: { category: string; imageUrl?: string | null }) {
   const cfg = CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG.storage;
+  if (imageUrl) {
+    return (
+      <View style={[ni.wrap, { backgroundColor: cfg.bg }]}>
+        <Image source={{ uri: imageUrl }} style={ni.photo} contentFit="cover" />
+      </View>
+    );
+  }
   return (
     <View style={[ni.wrap, { backgroundColor: cfg.bg }]}>
       <View style={[ni.circle, { borderColor: cfg.color + '20' }]} />
@@ -71,6 +90,7 @@ function NewCardImage({ category }: { category: string }) {
 
 const ni = StyleSheet.create({
   wrap:   { height: 100, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  photo:  { width: '100%', height: '100%' },
   circle: { position: 'absolute', width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, top: -10, right: -10 },
 });
 
@@ -142,7 +162,11 @@ function FeaturedCard({ item, badgeLabel, badgeColor, onPress }: {
   return (
     <TouchableOpacity style={[fc.card, { width: FEAT_CARD_W }]} onPress={onPress} activeOpacity={0.92}>
       {/* Icon image area */}
-      <FeaturedCardImage category={item.category} height={FEAT_CARD_H} />
+      <FeaturedCardImage
+        category={item.category}
+        height={FEAT_CARD_H}
+        imageUrl={item.cover_photo_url ?? item.photos?.[0] ?? null}
+      />
 
       {/* Badge */}
       <View style={[fc.badge, { backgroundColor: badgeColor }]}>
@@ -247,7 +271,10 @@ const hc = StyleSheet.create({
 function NewListingCard({ item, onPress }: { item: any; onPress: () => void }) {
   return (
     <TouchableOpacity style={[nc.card, { width: NEW_CARD_W }]} onPress={onPress} activeOpacity={0.9}>
-      <NewCardImage category={item.category} />
+      <NewCardImage
+        category={item.category}
+        imageUrl={item.cover_photo_url ?? item.photos?.[0] ?? null}
+      />
       <View style={nc.body}>
         <AppText variant="caption" weight="bold" numberOfLines={2} style={{ lineHeight: 17, marginBottom: 6 }}>
           {item.title}

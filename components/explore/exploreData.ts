@@ -7,9 +7,13 @@ export interface Listing {
   category:    Exclude<Category, 'all'>;
   title:       string;
   location:    string;
+  address?:    string;
+  city?:       string;
   distance:    number;   // km
   lat:         number;
   lng:         number;
+  userLat?:    number;
+  userLng?:    number;
   price:       number;
   priceUnit:   string;
   rating:      number;
@@ -21,6 +25,8 @@ export interface Listing {
   amenities:   string[];
   emoji:       string;
   bgColor:     string;
+  coverPhotoUrl?: string | null;
+  photos?:     string[];
   description: string;
   totalArea?:  string;
   capacity?:   number;

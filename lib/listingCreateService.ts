@@ -10,7 +10,7 @@ export type ListingCategory =
   | 'room'
   | 'vehicle'
   | 'equipment'
-  | 'event_venue'
+  | 'venue'
   | 'meeting_room'
   | 'storage';
 
@@ -76,7 +76,7 @@ export const AMENITY_PRESETS: Record<ListingCategory, string[]> = {
   room:         ['WiFi', 'Aircon', 'Kitchen', 'Hot Shower', 'Netflix', 'Washer', 'Parking', 'Gym', 'Pool Access'],
   vehicle:      ['Self-drive', 'GPS', 'Dash Cam', 'Unlimited KM', 'With Driver', 'Fuel Included', 'Insurance', 'Child Seat'],
   equipment:    ['Carry Bag', 'Extra Battery', 'SD Cards', 'Tripod', 'Lenses Included', 'Manual Included', 'Cleaning Kit'],
-  event_venue:  ['Tables & Chairs', 'AV System', 'Projector', 'Parking', 'Aircon', 'Catering', 'Stage', 'Sound System'],
+  venue:        ['Tables & Chairs', 'AV System', 'Projector', 'Parking', 'Aircon', 'Catering', 'Stage', 'Sound System'],
   meeting_room: ['WiFi', 'Projector', 'Whiteboard', 'Coffee', 'Printer', 'TV Screen', 'Video Conferencing'],
   storage:      ['24/7 Access', 'CCTV', 'Climate Controlled', 'Drive-up Access', 'Shelving', 'Padlock Provided'],
 };
@@ -135,17 +135,23 @@ export async function createListing(
       address:             draft.address.trim(),
       city:                draft.city.trim() || 'Davao City',
       barangay:            draft.barangay.trim() || null,
+      tags:                [],
       lat:                 draft.lat,
       lng:                 draft.lng,
       price,
       price_unit:          draft.price_unit,
       deposit,
       instant_book:        draft.instant_book,
+      min_booking_hours:   1,
+      max_booking_days:    30,
+      advance_notice_hours: 0,
+      buffer_hours:        0,
       amenities:           draft.amenities,
       house_rules:         draft.house_rules.trim() || null,
       cancellation_policy: draft.cancellation_policy,
       cover_photo_url:     draft.cover_photo_url,
       photos:              [], // populated after upload
+      is_featured:         false,
       status,
     })
     .select('id')
