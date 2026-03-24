@@ -1,25 +1,43 @@
 // app/listings/create.tsx
-// Multi-step listing creation form.
-// Steps: Category → Details → Location → Pricing → Amenities → Photos → Rules → Review
+// 8-step listing creation form.
+// Step 3 uses OSM LocationPicker (no API key required).
+// Step 6 supports multi-photo selection.
+//
+// Setup (run these first):
+//   npx expo install react-native-maps
+//   npx expo install @react-native-async-storage/async-storage
+//   npx expo install expo-image
+//   npx expo install expo-image-picker
+//
+// app.json plugins section:
+//   "plugins": [
+//     "expo-router",
+//     "expo-font",
+//     "expo-web-browser",
+//     "expo-secure-store",
+//     "react-native-maps",
+//     "expo-image-picker"
+//   ]
 
 import { useState, useRef } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, Switch, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Dimensions,
+  TextInput, Switch, Alert, KeyboardAvoidingView,
+  Platform, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { useRouter }     from 'expo-router';
+import * as ImagePicker  from 'expo-image-picker';
+import { Feather }       from '@expo/vector-icons';
+import { Image }         from 'expo-image';
 
-import { AppText }   from '@/components/ui/AppText';
-import { AppButton } from '@/components/ui/AppButton';
-import { AppInput }  from '@/components/ui/AppInput';
-import { useToast }  from '@/components/ui/Toast';
+import { AppText }    from '@/components/ui/AppText';
+import { AppButton }  from '@/components/ui/AppButton';
+import { AppInput }   from '@/components/ui/AppInput';
+import { useToast }   from '@/components/ui/Toast';
 import { CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
-import { useAuthStore } from '@/store/authStore';
+import { LocationPicker }  from '@/components/listing/LocationPicker';
+import { useAuthStore }    from '@/store/authStore';
 import {
   DRAFT_DEFAULTS, AMENITY_PRESETS,
   uploadListingPhoto, createListing, updateListingPhotos,
@@ -28,32 +46,31 @@ import {
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
 const { width: W } = Dimensions.get('window');
-
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { key: 'category',  title: 'Choose a category',     icon: 'grid'       as FeatherName },
-  { key: 'details',   title: 'Describe your space',   icon: 'edit-3'     as FeatherName },
-  { key: 'location',  title: 'Where is it located?',  icon: 'map-pin'    as FeatherName },
-  { key: 'pricing',   title: 'Set your price',        icon: 'dollar-sign'as FeatherName },
-  { key: 'amenities', title: 'What does it offer?',   icon: 'check-circle'as FeatherName },
-  { key: 'photos',    title: 'Add photos',            icon: 'camera'     as FeatherName },
-  { key: 'rules',     title: 'House rules & policy',  icon: 'file-text'  as FeatherName },
-  { key: 'review',    title: 'Review & publish',      icon: 'eye'        as FeatherName },
+  { key: 'category',  title: 'Choose a category',    icon: 'grid'         as FeatherName },
+  { key: 'details',   title: 'Describe your space',  icon: 'edit-3'       as FeatherName },
+  { key: 'location',  title: 'Where is it located?', icon: 'map-pin'      as FeatherName },
+  { key: 'pricing',   title: 'Set your price',       icon: 'dollar-sign'  as FeatherName },
+  { key: 'amenities', title: 'What does it offer?',  icon: 'check-circle' as FeatherName },
+  { key: 'photos',    title: 'Add photos',           icon: 'camera'       as FeatherName },
+  { key: 'rules',     title: 'Rules & policy',       icon: 'file-text'    as FeatherName },
+  { key: 'review',    title: 'Review & publish',     icon: 'eye'          as FeatherName },
 ] as const;
 
 type StepKey = typeof STEPS[number]['key'];
 
 const CATEGORIES: { key: ListingCategory; label: string; desc: string }[] = [
-  { key: 'parking',      label: 'Parking',       desc: 'Parking slot, garage, or covered space'      },
-  { key: 'room',         label: 'Room / Unit',   desc: 'Private room, studio, apartment, or condo'   },
-  { key: 'vehicle',      label: 'Vehicle',       desc: 'Car, van, motorcycle, or truck for rent'     },
-  { key: 'equipment',    label: 'Equipment',     desc: 'Camera, tools, sound system, or gear'        },
-  { key: 'event_venue',  label: 'Event Venue',   desc: 'Function hall, rooftop, or outdoor space'    },
-  { key: 'meeting_room', label: 'Meeting Room',  desc: 'Boardroom, training room, or hot desk'       },
-  { key: 'storage',      label: 'Storage',       desc: 'Storage unit, bodega, or warehouse space'    },
+  { key: 'parking',      label: 'Parking',      desc: 'Parking slot, garage, or covered space'    },
+  { key: 'room',         label: 'Room / Unit',  desc: 'Private room, studio, apartment, or condo' },
+  { key: 'vehicle',      label: 'Vehicle',      desc: 'Car, van, motorcycle, or truck for rent'   },
+  { key: 'equipment',    label: 'Equipment',    desc: 'Camera, tools, sound system, or gear'      },
+  { key: 'event_venue',  label: 'Event Venue',  desc: 'Function hall, rooftop, or outdoor space'  },
+  { key: 'meeting_room', label: 'Meeting Room', desc: 'Boardroom, training room, or hot desk'     },
+  { key: 'storage',      label: 'Storage',      desc: 'Storage unit, bodega, or warehouse space'  },
 ];
 
 const PRICE_UNITS: { key: PriceUnit; label: string }[] = [
@@ -63,70 +80,71 @@ const PRICE_UNITS: { key: PriceUnit; label: string }[] = [
   { key: 'month', label: 'Per month' },
 ];
 
-const CANCELLATION_OPTIONS = [
-  { key: 'flexible' as const, label: 'Flexible',  desc: 'Full refund if cancelled 48h before' },
-  { key: 'moderate' as const, label: 'Moderate',  desc: '50% refund if cancelled 24–48h before' },
-  { key: 'strict'   as const, label: 'Strict',    desc: 'No refund within 48h of booking' },
+const CANCELLATION_OPTS = [
+  { key: 'flexible' as const, label: 'Flexible', desc: 'Full refund if cancelled 48h before'     },
+  { key: 'moderate' as const, label: 'Moderate', desc: '50% refund if cancelled 24–48h before'  },
+  { key: 'strict'   as const, label: 'Strict',   desc: 'No refund within 48h of booking'        },
 ];
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
+// ─── Small shared components ──────────────────────────────────────────────────
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
-  const pct = ((current + 1) / total) * 100;
   return (
     <View style={pb.track}>
-      <View style={[pb.fill, { width: `${pct}%` }]} />
+      <View style={[pb.fill, { width: `${((current + 1) / total) * 100}%` }]} />
     </View>
   );
 }
 const pb = StyleSheet.create({
-  track: { height: 3, backgroundColor: Colors.border, borderRadius: 2, marginHorizontal: Spacing.xl },
+  track: { height: 3, backgroundColor: Colors.border, marginHorizontal: Spacing.xl, borderRadius: 2 },
   fill:  { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
 });
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-
-function Section({ title, children }: { title?: string; children: React.ReactNode }) {
+function FieldLabel({ title }: { title: string }) {
   return (
-    <View style={sec.wrap}>
-      {title && <AppText variant="label" weight="bold" color={Colors.muted} style={sec.title}>{title}</AppText>}
-      {children}
+    <AppText variant="label" weight="bold" color={Colors.muted}
+      style={{ textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11 }}>
+      {title}
+    </AppText>
+  );
+}
+
+function InfoBanner({ text }: { text: string }) {
+  return (
+    <View style={sh.infoBanner}>
+      <Feather name="info" size={14} color={Colors.teal} />
+      <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>{text}</AppText>
     </View>
   );
 }
-const sec = StyleSheet.create({
-  wrap:  { gap: Spacing.sm },
-  title: { textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11, marginBottom: 2 },
-});
 
-// ─── Step 1: Category ─────────────────────────────────────────────────────────
+// ─── STEP 1: Category ─────────────────────────────────────────────────────────
 
-function StepCategory({ draft, onChange }: { draft: ListingDraft; onChange: (c: ListingCategory) => void }) {
+function StepCategory({ draft, onChange }: {
+  draft: ListingDraft;
+  onChange: (c: ListingCategory) => void;
+}) {
   return (
-    <View style={styles.stepContent}>
-      <AppText variant="body" color={Colors.muted} style={{ marginBottom: Spacing.lg }}>
-        What type of space are you listing?
-      </AppText>
+    <View style={sh.stepWrap}>
+      <AppText variant="body" color={Colors.muted}>What type of space are you listing?</AppText>
       {CATEGORIES.map(cat => {
         const cfg      = CATEGORY_CONFIG[cat.key] ?? CATEGORY_CONFIG.storage;
         const selected = draft.category === cat.key;
         return (
           <TouchableOpacity
             key={cat.key}
-            style={[styles.catRow, selected && styles.catRowSelected]}
+            style={[sh.catRow, selected && sh.catRowActive]}
             onPress={() => onChange(cat.key)}
-            activeOpacity={0.8}
+            activeOpacity={0.82}
           >
-            <View style={[styles.catIconWrap, { backgroundColor: selected ? cfg.color : cfg.bg }]}>
+            <View style={[sh.catIcon, { backgroundColor: selected ? cfg.color : cfg.bg }]}>
               <Feather name={cfg.icon} size={22} color={selected ? Colors.white : cfg.color} />
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
               <AppText variant="label" weight="bold" color={selected ? Colors.primary : Colors.ink}>
                 {cat.label}
               </AppText>
-              <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
-                {cat.desc}
-              </AppText>
+              <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>{cat.desc}</AppText>
             </View>
             {selected && <Feather name="check-circle" size={20} color={Colors.primary} />}
           </TouchableOpacity>
@@ -136,12 +154,16 @@ function StepCategory({ draft, onChange }: { draft: ListingDraft; onChange: (c: 
   );
 }
 
-// ─── Step 2: Details ─────────────────────────────────────────────────────────
+// ─── STEP 2: Details ─────────────────────────────────────────────────────────
 
-function StepDetails({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
+function StepDetails({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
   return (
-    <View style={styles.stepContent}>
-      <Section title="Listing title">
+    <View style={sh.stepWrap}>
+      <View style={sh.field}>
+        <FieldLabel title="Listing title" />
         <AppInput
           placeholder="e.g. Covered Parking · SM Lanang Area"
           value={draft.title}
@@ -151,12 +173,12 @@ function StepDetails({ draft, update }: { draft: ListingDraft; update: (k: keyof
         <AppText variant="caption" color={Colors.subtle} style={{ textAlign: 'right' }}>
           {draft.title.length}/80
         </AppText>
-      </Section>
-
-      <Section title="Description">
-        <View style={styles.textAreaWrap}>
+      </View>
+      <View style={sh.field}>
+        <FieldLabel title="Description" />
+        <View style={sh.textAreaBox}>
           <TextInput
-            style={styles.textArea}
+            style={sh.textArea}
             placeholder="Describe your space — what makes it special, who it's best for, what's nearby…"
             placeholderTextColor={Colors.subtle}
             value={draft.description}
@@ -169,110 +191,76 @@ function StepDetails({ draft, update }: { draft: ListingDraft; update: (k: keyof
         <AppText variant="caption" color={Colors.subtle} style={{ textAlign: 'right' }}>
           {draft.description.length}/500
         </AppText>
-      </Section>
-    </View>
-  );
-}
-
-// ─── Step 3: Location ─────────────────────────────────────────────────────────
-
-const DAVAO_BARANGAYS = [
-  'Agdao', 'Bajada', 'Buhangin', 'Bunawan', 'Calinan', 'Communal',
-  'Damosa', 'Eden', 'Lanang', 'Lasang', 'Matina', 'Mintal',
-  'Panacan', 'Poblacion', 'Sasa', 'Talomo', 'Tibungco', 'Toril',
-  'Tugbok', 'Ula',
-];
-
-function StepLocation({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
-  return (
-    <View style={styles.stepContent}>
-      <Section title="Street address">
-        <AppInput
-          placeholder="e.g. JP Laurel Ave, Bajada"
-          value={draft.address}
-          onChangeText={v => update('address', v)}
-          iconLeft={<Feather name="map-pin" size={16} color={Colors.subtle} />}
-        />
-      </Section>
-
-      <Section title="City">
-        <AppInput
-          placeholder="Davao City"
-          value={draft.city}
-          onChangeText={v => update('city', v)}
-          iconLeft={<Feather name="navigation" size={16} color={Colors.subtle} />}
-        />
-      </Section>
-
-      <Section title="Barangay">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm, paddingBottom: 4 }}>
-          {DAVAO_BARANGAYS.map(b => (
-            <TouchableOpacity
-              key={b}
-              style={[styles.chipBtn, draft.barangay === b && styles.chipBtnActive]}
-              onPress={() => update('barangay', b)}
-              activeOpacity={0.8}
-            >
-              <AppText
-                variant="caption"
-                weight="bold"
-                color={draft.barangay === b ? Colors.white : Colors.muted}
-              >
-                {b}
-              </AppText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Section>
-
-      <View style={styles.infoBanner}>
-        <Feather name="info" size={14} color={Colors.teal} />
-        <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>
-          Your exact address is only shown to renters after they complete a booking.
-        </AppText>
       </View>
     </View>
   );
 }
 
-// ─── Step 4: Pricing ─────────────────────────────────────────────────────────
+// ─── STEP 3: Location — OSM map + Nominatim search + saved pins ───────────────
 
-function StepPricing({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
-  const price   = parseFloat(draft.price)   || 0;
-  const deposit = parseFloat(draft.deposit) || 0;
-  const fee     = price * 0.10;
-  const earn    = price * 0.97;
+function StepLocation({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
+  return (
+    <View style={sh.stepWrap}>
+      <AppText variant="body" color={Colors.muted}>
+        Search for your address, tap the map, or drag the pin to set the exact location.
+      </AppText>
+
+      <LocationPicker
+        value={{ address: draft.address, city: draft.city, lat: draft.lat, lng: draft.lng }}
+        onChange={loc => {
+          update('address', loc.address);
+          update('city',    loc.city);
+          update('lat',     loc.lat);
+          update('lng',     loc.lng);
+        }}
+      />
+
+      <InfoBanner text="Your exact address is only shown to renters after they complete a booking." />
+    </View>
+  );
+}
+
+// ─── STEP 4: Pricing ─────────────────────────────────────────────────────────
+
+function StepPricing({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
+  const price = parseFloat(draft.price)   || 0;
+  const earn  = price * 0.87;
 
   return (
-    <View style={styles.stepContent}>
-      <Section title="Billing unit">
-        <View style={styles.unitRow}>
+    <View style={sh.stepWrap}>
+      <View style={sh.field}>
+        <FieldLabel title="Billing unit" />
+        <View style={sh.unitRow}>
           {PRICE_UNITS.map(u => (
             <TouchableOpacity
               key={u.key}
-              style={[styles.unitBtn, draft.price_unit === u.key && styles.unitBtnActive]}
+              style={[sh.unitBtn, draft.price_unit === u.key && sh.unitBtnActive]}
               onPress={() => update('price_unit', u.key)}
               activeOpacity={0.8}
             >
-              <AppText
-                variant="label"
-                weight="bold"
-                color={draft.price_unit === u.key ? Colors.white : Colors.muted}
-              >
+              <AppText variant="label" weight="bold"
+                color={draft.price_unit === u.key ? Colors.white : Colors.muted}>
                 {u.label}
               </AppText>
             </TouchableOpacity>
           ))}
         </View>
-      </Section>
+      </View>
 
-      <Section title={`Price per ${draft.price_unit}`}>
-        <View style={styles.priceInputWrap}>
-          <View style={styles.pesoCurrency}>
+      <View style={sh.field}>
+        <FieldLabel title={`Price per ${draft.price_unit}`} />
+        <View style={sh.priceRow}>
+          <View style={sh.pesoTag}>
             <AppText variant="h3" weight="bold" color={Colors.muted}>₱</AppText>
           </View>
           <TextInput
-            style={styles.priceInput}
+            style={sh.priceInput}
             placeholder="0"
             placeholderTextColor={Colors.subtle}
             value={draft.price}
@@ -280,15 +268,16 @@ function StepPricing({ draft, update }: { draft: ListingDraft; update: (k: keyof
             keyboardType="decimal-pad"
           />
         </View>
-      </Section>
+      </View>
 
-      <Section title="Security deposit (optional)">
-        <View style={styles.priceInputWrap}>
-          <View style={styles.pesoCurrency}>
+      <View style={sh.field}>
+        <FieldLabel title="Security deposit (optional)" />
+        <View style={sh.priceRow}>
+          <View style={sh.pesoTag}>
             <AppText variant="h3" weight="bold" color={Colors.muted}>₱</AppText>
           </View>
           <TextInput
-            style={styles.priceInput}
+            style={sh.priceInput}
             placeholder="0"
             placeholderTextColor={Colors.subtle}
             value={draft.deposit}
@@ -296,21 +285,20 @@ function StepPricing({ draft, update }: { draft: ListingDraft; update: (k: keyof
             keyboardType="decimal-pad"
           />
         </View>
-      </Section>
+      </View>
 
-      {/* Earnings breakdown */}
       {price > 0 && (
-        <View style={styles.earningsCard}>
+        <View style={sh.earningsCard}>
           <AppText variant="label" weight="bold" style={{ marginBottom: Spacing.md }}>
             Earnings breakdown
           </AppText>
           {[
-            { label: `Renter pays`,      value: `₱${price.toLocaleString()}`,        color: Colors.ink    },
-            { label: `Service fee (10%)`, value: `−₱${fee.toFixed(0)}`,             color: Colors.muted  },
-            { label: `Host fee (3%)`,    value: `−₱${(price * 0.03).toFixed(0)}`,   color: Colors.muted  },
-            { label: `You receive`,      value: `₱${earn.toFixed(0)}`,              color: Colors.teal   },
+            { label: 'Renter pays',       value: `₱${price.toLocaleString()}`,      color: Colors.ink   },
+            { label: 'Service fee (10%)', value: `−₱${(price * 0.10).toFixed(0)}`, color: Colors.muted },
+            { label: 'Host fee (3%)',     value: `−₱${(price * 0.03).toFixed(0)}`, color: Colors.muted },
+            { label: 'You receive',       value: `₱${earn.toFixed(0)}`,            color: Colors.teal  },
           ].map(row => (
-            <View key={row.label} style={styles.earningsRow}>
+            <View key={row.label} style={sh.earningsRow}>
               <AppText variant="label" color={Colors.muted}>{row.label}</AppText>
               <AppText variant="label" weight="bold" color={row.color}>{row.value}</AppText>
             </View>
@@ -318,8 +306,7 @@ function StepPricing({ draft, update }: { draft: ListingDraft; update: (k: keyof
         </View>
       )}
 
-      {/* Instant book toggle */}
-      <View style={styles.toggleRow}>
+      <View style={sh.toggleCard}>
         <View style={{ flex: 1 }}>
           <AppText variant="label" weight="bold">Instant Book</AppText>
           <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
@@ -337,81 +324,73 @@ function StepPricing({ draft, update }: { draft: ListingDraft; update: (k: keyof
   );
 }
 
-// ─── Step 5: Amenities ────────────────────────────────────────────────────────
+// ─── STEP 5: Amenities ────────────────────────────────────────────────────────
 
-function StepAmenities({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
+function StepAmenities({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
   const presets = draft.category ? AMENITY_PRESETS[draft.category] : [];
 
-  function toggle(amenity: string) {
-    const current = draft.amenities;
-    if (current.includes(amenity)) {
-      update('amenities', current.filter(a => a !== amenity));
-    } else {
-      update('amenities', [...current, amenity]);
-    }
+  function toggle(a: string) {
+    const cur = draft.amenities;
+    update('amenities', cur.includes(a) ? cur.filter(x => x !== a) : [...cur, a]);
   }
 
   return (
-    <View style={styles.stepContent}>
-      <AppText variant="body" color={Colors.muted} style={{ marginBottom: Spacing.lg }}>
-        Select everything that applies to your listing.
-      </AppText>
-
-      <View style={styles.amenitiesGrid}>
+    <View style={sh.stepWrap}>
+      <AppText variant="body" color={Colors.muted}>Select all features and amenities that apply.</AppText>
+      <View style={sh.amenityGrid}>
         {presets.map(a => {
-          const selected = draft.amenities.includes(a);
+          const on = draft.amenities.includes(a);
           return (
             <TouchableOpacity
               key={a}
-              style={[styles.amenityBtn, selected && styles.amenityBtnSelected]}
+              style={[sh.amenityBtn, on && sh.amenityBtnOn]}
               onPress={() => toggle(a)}
               activeOpacity={0.8}
             >
-              <Feather
-                name={selected ? 'check-circle' : 'circle'}
-                size={15}
-                color={selected ? Colors.teal : Colors.border}
-              />
-              <AppText
-                variant="label"
-                color={selected ? Colors.teal : Colors.muted}
-                style={{ marginLeft: 8 }}
-              >
+              <Feather name={on ? 'check-circle' : 'circle'} size={14} color={on ? Colors.teal : Colors.border} />
+              <AppText variant="label" color={on ? Colors.teal : Colors.muted} style={{ marginLeft: 7 }}>
                 {a}
               </AppText>
             </TouchableOpacity>
           );
         })}
       </View>
-
-      <AppText variant="caption" color={Colors.subtle} style={{ marginTop: Spacing.sm }}>
-        {draft.amenities.length} selected
-      </AppText>
+      <AppText variant="caption" color={Colors.subtle}>{draft.amenities.length} selected</AppText>
     </View>
   );
 }
 
-// ─── Step 6: Photos ───────────────────────────────────────────────────────────
+// ─── STEP 6: Photos — multi-select, tap to set cover ─────────────────────────
 
-function StepPhotos({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
-  async function pickPhoto() {
-    if (draft.photos.length >= 8) {
-      Alert.alert('Max 8 photos', 'Remove a photo first to add another.');
-      return;
-    }
+function StepPhotos({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
+  const thumbSize = (W - Spacing.xl * 2 - Spacing.sm * 2) / 3;
+
+  async function pickPhotos() {
+    const remaining = 8 - draft.photos.length;
+    if (remaining <= 0) { Alert.alert('Max 8 photos', 'Remove a photo before adding more.'); return; }
+
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', 'Please allow photo library access.');
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
       return;
     }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes:    ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality:       0.85,
-      aspect:        [4, 3],
+      mediaTypes:              ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit:          remaining,
+      quality:                 0.85,
+      allowsEditing:           false,
     });
-    if (!result.canceled && result.assets[0]) {
-      update('photos', [...draft.photos, result.assets[0].uri]);
+
+    if (!result.canceled && result.assets.length > 0) {
+      update('photos', [...draft.photos, ...result.assets.map(a => a.uri)]);
     }
   }
 
@@ -419,55 +398,72 @@ function StepPhotos({ draft, update }: { draft: ListingDraft; update: (k: keyof 
     update('photos', draft.photos.filter(p => p !== uri));
   }
 
+  function setCover(uri: string) {
+    if (draft.photos[0] === uri) return;
+    update('photos', [uri, ...draft.photos.filter(p => p !== uri)]);
+  }
+
   return (
-    <View style={styles.stepContent}>
-      <AppText variant="body" color={Colors.muted} style={{ marginBottom: Spacing.lg }}>
-        Add up to 8 photos. The first photo will be your cover image.
+    <View style={sh.stepWrap}>
+      <AppText variant="body" color={Colors.muted}>
+        Add up to 8 photos. Tap a photo to set it as the cover image.
       </AppText>
 
-      <View style={styles.photosGrid}>
-        {/* Add button */}
-        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPhoto} activeOpacity={0.8}>
-          <View style={styles.addPhotoIcon}>
-            <Feather name="camera" size={24} color={Colors.primary} />
-          </View>
-          <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginTop: 6 }}>
-            Add photo
-          </AppText>
-          <AppText variant="caption" color={Colors.subtle}>
-            {draft.photos.length}/8
-          </AppText>
-        </TouchableOpacity>
+      <View style={sh.photoGrid}>
+        {draft.photos.length < 8 && (
+          <TouchableOpacity
+            style={[sh.addPhotoBtn, { width: thumbSize, height: thumbSize }]}
+            onPress={pickPhotos}
+            activeOpacity={0.82}
+          >
+            <View style={sh.addPhotoIconBox}>
+              <Feather name="camera" size={22} color={Colors.primary} />
+            </View>
+            <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginTop: 5 }}>
+              {draft.photos.length === 0 ? 'Add photos' : 'Add more'}
+            </AppText>
+            <AppText variant="caption" color={Colors.subtle}>{draft.photos.length}/8</AppText>
+          </TouchableOpacity>
+        )}
 
-        {/* Photo thumbnails */}
         {draft.photos.map((uri, i) => (
-          <View key={uri} style={styles.photoThumb}>
-            <Image source={{ uri }} style={styles.photoImg} contentFit="cover" />
-
-            {/* Cover badge */}
+          <TouchableOpacity
+            key={uri}
+            style={[sh.photoThumb, { width: thumbSize, height: thumbSize }, i === 0 && sh.photoThumbCover]}
+            onPress={() => setCover(uri)}
+            onLongPress={() =>
+              Alert.alert('Remove photo?', undefined, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Remove', style: 'destructive', onPress: () => removePhoto(uri) },
+              ])
+            }
+            activeOpacity={0.88}
+          >
+            <Image source={{ uri }} style={sh.photoImg} contentFit="cover" />
             {i === 0 && (
-              <View style={styles.coverBadge}>
-                <AppText style={{ fontSize: 9, fontWeight: '800', color: Colors.white }}>COVER</AppText>
+              <View style={sh.coverLabel}>
+                <Feather name="star" size={8} color={Colors.white} />
+                <AppText style={sh.coverLabelText}>COVER</AppText>
               </View>
             )}
-
-            {/* Remove button */}
             <TouchableOpacity
-              style={styles.removePhotoBtn}
+              style={sh.removeBtn}
               onPress={() => removePhoto(uri)}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Feather name="x" size={12} color={Colors.white} />
+              <Feather name="x" size={11} color={Colors.white} />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
-      {draft.photos.length === 0 && (
-        <View style={styles.infoBanner}>
-          <Feather name="info" size={14} color={Colors.teal} />
-          <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>
-            Listings with photos get 3× more bookings. You can skip for now and add later.
+      {draft.photos.length === 0 ? (
+        <InfoBanner text="Listings with photos get 3× more bookings. You can select multiple photos at once." />
+      ) : (
+        <View style={sh.photoHint}>
+          <Feather name="info" size={12} color={Colors.muted} />
+          <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 6 }}>
+            Tap to set as cover · Long-press to remove
           </AppText>
         </View>
       )}
@@ -475,16 +471,20 @@ function StepPhotos({ draft, update }: { draft: ListingDraft; update: (k: keyof 
   );
 }
 
-// ─── Step 7: Rules ────────────────────────────────────────────────────────────
+// ─── STEP 7: Rules ───────────────────────────────────────────────────────────
 
-function StepRules({ draft, update }: { draft: ListingDraft; update: (k: keyof ListingDraft, v: any) => void }) {
+function StepRules({ draft, update }: {
+  draft: ListingDraft;
+  update: (k: keyof ListingDraft, v: any) => void;
+}) {
   return (
-    <View style={styles.stepContent}>
-      <Section title="House rules (optional)">
-        <View style={styles.textAreaWrap}>
+    <View style={sh.stepWrap}>
+      <View style={sh.field}>
+        <FieldLabel title="House rules (optional)" />
+        <View style={sh.textAreaBox}>
           <TextInput
-            style={styles.textArea}
-            placeholder="e.g. No smoking inside · Only listed vehicle types · Renter responsible for damages…"
+            style={sh.textArea}
+            placeholder="e.g. No smoking · Only listed vehicle types · Renter responsible for damages…"
             placeholderTextColor={Colors.subtle}
             value={draft.house_rules}
             onChangeText={v => update('house_rules', v)}
@@ -493,42 +493,35 @@ function StepRules({ draft, update }: { draft: ListingDraft; update: (k: keyof L
             textAlignVertical="top"
           />
         </View>
-      </Section>
+      </View>
 
-      <Section title="Cancellation policy">
-        {CANCELLATION_OPTIONS.map(opt => (
+      <View style={sh.field}>
+        <FieldLabel title="Cancellation policy" />
+        {CANCELLATION_OPTS.map(opt => (
           <TouchableOpacity
             key={opt.key}
-            style={[styles.policyRow, draft.cancellation_policy === opt.key && styles.policyRowSelected]}
+            style={[sh.policyRow, draft.cancellation_policy === opt.key && sh.policyRowActive]}
             onPress={() => update('cancellation_policy', opt.key)}
             activeOpacity={0.8}
           >
             <View style={{ flex: 1 }}>
-              <AppText
-                variant="label"
-                weight="bold"
-                color={draft.cancellation_policy === opt.key ? Colors.primary : Colors.ink}
-              >
+              <AppText variant="label" weight="bold"
+                color={draft.cancellation_policy === opt.key ? Colors.primary : Colors.ink}>
                 {opt.label}
               </AppText>
-              <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
-                {opt.desc}
-              </AppText>
+              <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>{opt.desc}</AppText>
             </View>
-            <View style={[
-              styles.radioOuter,
-              draft.cancellation_policy === opt.key && styles.radioOuterActive,
-            ]}>
-              {draft.cancellation_policy === opt.key && <View style={styles.radioInner} />}
+            <View style={[sh.radio, draft.cancellation_policy === opt.key && sh.radioActive]}>
+              {draft.cancellation_policy === opt.key && <View style={sh.radioDot} />}
             </View>
           </TouchableOpacity>
         ))}
-      </Section>
+      </View>
     </View>
   );
 }
 
-// ─── Step 8: Review ───────────────────────────────────────────────────────────
+// ─── STEP 8: Review ──────────────────────────────────────────────────────────
 
 function StepReview({ draft }: { draft: ListingDraft }) {
   const cfg = draft.category
@@ -537,32 +530,33 @@ function StepReview({ draft }: { draft: ListingDraft }) {
 
   const rows = [
     { label: 'Category',     value: CATEGORIES.find(c => c.key === draft.category)?.label ?? '—' },
-    { label: 'Title',        value: draft.title       || '—' },
-    { label: 'Address',      value: [draft.address, draft.barangay, draft.city].filter(Boolean).join(', ') || '—' },
+    { label: 'Title',        value: draft.title || '—' },
+    { label: 'Address',      value: [draft.address, draft.city].filter(Boolean).join(', ') || '—' },
     { label: 'Price',        value: draft.price ? `₱${parseFloat(draft.price).toLocaleString()} / ${draft.price_unit}` : '—' },
     { label: 'Deposit',      value: draft.deposit && parseFloat(draft.deposit) > 0 ? `₱${parseFloat(draft.deposit).toLocaleString()}` : 'None' },
     { label: 'Instant Book', value: draft.instant_book ? 'Yes' : 'No' },
-    { label: 'Amenities',    value: draft.amenities.length > 0 ? draft.amenities.join(', ') : 'None selected' },
+    { label: 'Amenities',    value: draft.amenities.length > 0 ? draft.amenities.join(', ') : 'None' },
     { label: 'Photos',       value: `${draft.photos.length} photo${draft.photos.length !== 1 ? 's' : ''}` },
     { label: 'Policy',       value: draft.cancellation_policy.charAt(0).toUpperCase() + draft.cancellation_policy.slice(1) },
   ];
 
   return (
-    <View style={styles.stepContent}>
-      {/* Preview card */}
-      <View style={styles.previewCard}>
-        <View style={[styles.previewImg, { backgroundColor: cfg.bg }]}>
+    <View style={sh.stepWrap}>
+      <View style={sh.previewCard}>
+        <View style={[sh.previewImg, { backgroundColor: cfg.bg }]}>
           {draft.photos.length > 0 ? (
             <Image source={{ uri: draft.photos[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
           ) : (
-            <Feather name={cfg.icon} size={40} color={cfg.color} />
+            <Feather name={cfg.icon} size={44} color={cfg.color} />
           )}
-          <View style={styles.previewBadge}>
-            <AppText style={{ fontSize: 9, fontWeight: '800', color: Colors.white }}>PREVIEW</AppText>
+          <View style={sh.previewBadge}>
+            <AppText style={sh.previewBadgeText}>PREVIEW</AppText>
           </View>
         </View>
         <View style={{ padding: Spacing.md }}>
-          <AppText variant="label" weight="bold" numberOfLines={1}>{draft.title || 'Your listing title'}</AppText>
+          <AppText variant="label" weight="bold" numberOfLines={1}>
+            {draft.title || 'Your listing title'}
+          </AppText>
           <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
             {draft.city || 'Davao City'}
           </AppText>
@@ -573,14 +567,14 @@ function StepReview({ draft }: { draft: ListingDraft }) {
         </View>
       </View>
 
-      {/* Details table */}
-      <View style={styles.reviewCard}>
+      <View style={sh.reviewTable}>
         {rows.map((row, i) => (
           <View key={row.label}>
-            {i > 0 && <View style={styles.reviewDivider} />}
-            <View style={styles.reviewRow}>
-              <AppText variant="caption" weight="bold" color={Colors.subtle} style={{ width: 90 }}>
-                {row.label.toUpperCase()}
+            {i > 0 && <View style={sh.reviewDivider} />}
+            <View style={sh.reviewRow}>
+              <AppText variant="caption" weight="bold" color={Colors.subtle}
+                style={{ width: 90, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                {row.label}
               </AppText>
               <AppText variant="label" color={Colors.ink} style={{ flex: 1, marginLeft: Spacing.md }}>
                 {row.value}
@@ -596,16 +590,16 @@ function StepReview({ draft }: { draft: ListingDraft }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CreateListingScreen() {
-  const router  = useRouter();
-  const toast   = useToast();
-  const { user } = useAuthStore();
+  const router    = useRouter();
+  const toast     = useToast();
+  const { user }  = useAuthStore();
+  const scrollRef = useRef<ScrollView>(null);
 
   const [stepIndex, setStepIndex] = useState(0);
   const [draft,     setDraft]     = useState<ListingDraft>(DRAFT_DEFAULTS);
   const [saving,    setSaving]    = useState(false);
-  const scrollRef   = useRef<ScrollView>(null);
 
-  const step = STEPS[stepIndex];
+  const step    = STEPS[stepIndex];
   const isFirst = stepIndex === 0;
   const isLast  = stepIndex === STEPS.length - 1;
 
@@ -613,11 +607,8 @@ export default function CreateListingScreen() {
     setDraft(prev => ({ ...prev, [key]: value }));
   }
 
-  function scrollTop() {
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }
+  function scrollTop() { scrollRef.current?.scrollTo({ y: 0, animated: true }); }
 
-  // ── Validation per step ────────────────────────────────────────────────────
   function canProceed(): boolean {
     switch (step.key) {
       case 'category':  return !!draft.category;
@@ -628,77 +619,55 @@ export default function CreateListingScreen() {
     }
   }
 
-  function validationMessage(): string {
+  function validationMsg(): string {
     switch (step.key) {
-      case 'category':  return 'Please select a category to continue.';
-      case 'details':   return 'Please enter a title (at least 5 characters).';
-      case 'location':  return 'Please enter a street address.';
-      case 'pricing':   return 'Please set a price greater than ₱0.';
-      default:          return '';
+      case 'category': return 'Please select a category to continue.';
+      case 'details':  return 'Title must be at least 5 characters.';
+      case 'location': return 'Please set a location on the map.';
+      case 'pricing':  return 'Please set a price greater than ₱0.';
+      default:         return '';
     }
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
   function goNext() {
-    if (!canProceed()) {
-      toast.show(validationMessage(), 'error');
-      return;
-    }
-    if (isLast) {
-      handlePublish();
-    } else {
-      setStepIndex(i => i + 1);
-      scrollTop();
-    }
+    if (!canProceed()) { toast.show(validationMsg(), 'error'); return; }
+    if (isLast) { handlePublish(); return; }
+    setStepIndex(i => i + 1);
+    scrollTop();
   }
 
   function goBack() {
-    if (isFirst) {
-      router.back();
-    } else {
-      setStepIndex(i => i - 1);
-      scrollTop();
-    }
+    if (isFirst) { router.back(); return; }
+    setStepIndex(i => i - 1);
+    scrollTop();
   }
 
-  // ── Publish ────────────────────────────────────────────────────────────────
+  function skip() { setStepIndex(i => i + 1); scrollTop(); }
+
   async function handlePublish() {
     if (!user?.id) return;
     setSaving(true);
-
     try {
-      // 1. Create the listing row (draft first)
-      const { data: listing, error: createError } = await createListing(user.id, draft, 'draft');
-      if (createError || !listing) {
-        toast.show(createError?.message ?? 'Failed to create listing.', 'error');
-        setSaving(false);
+      const { data: listing, error: ce } = await createListing(user.id, draft, 'draft');
+      if (ce || !listing) {
+        toast.show(ce?.message ?? 'Failed to create listing.', 'error');
         return;
       }
 
-      // 2. Upload photos if any
-      let uploadedUrls: string[] = [];
       if (draft.photos.length > 0) {
         toast.show('Uploading photos…', 'info');
         const uploads = await Promise.all(
           draft.photos.map((uri, i) => uploadListingPhoto(user.id, uri, i))
         );
-        uploadedUrls = uploads.filter(r => r.url).map(r => r.url!);
-
-        if (uploadedUrls.length > 0) {
-          await updateListingPhotos(listing.id, uploadedUrls);
-        }
+        const urls = uploads.filter(r => r.url).map(r => r.url!);
+        if (urls.length > 0) await updateListingPhotos(listing.id, urls);
       }
 
-      // 3. Activate
-      const { error: activateError } = await import('@/lib/listingsService').then(m =>
-        m.setListingStatus(listing.id, 'active')
-      );
+      const { setListingStatus } = await import('@/lib/listingsService');
+      const { error: ae } = await setListingStatus(listing.id, 'active');
 
-      if (activateError) {
-        toast.show('Listing created but could not be published. Go to Host tab to activate it.', 'info');
-      } else {
-        toast.show('Listing published! 🎉', 'success');
-      }
+      toast.show(ae ? 'Created — activate it from the Host tab.' : 'Listing published! 🎉',
+        ae ? 'info' : 'success');
 
       router.replace('/(tabs)/host');
     } catch (e: any) {
@@ -708,7 +677,6 @@ export default function CreateListingScreen() {
     }
   }
 
-  // ── Save as draft ──────────────────────────────────────────────────────────
   async function handleSaveDraft() {
     if (!user?.id || !draft.category || !draft.title.trim()) {
       Alert.alert('Cannot save draft', 'Please select a category and enter a title first.');
@@ -717,63 +685,59 @@ export default function CreateListingScreen() {
     setSaving(true);
     const { error } = await createListing(user.id, draft, 'draft');
     setSaving(false);
-    if (error) {
-      toast.show('Failed to save draft.', 'error');
-    } else {
-      toast.show('Draft saved.', 'success');
-      router.back();
-    }
+    if (error) { toast.show('Failed to save draft.', 'error'); return; }
+    toast.show('Draft saved.', 'success');
+    router.back();
   }
+
+  const isSkippable = step.key === 'amenities' || step.key === 'photos' || step.key === 'rules';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* ── Header ── */}
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity style={styles.headerBtn} onPress={goBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name={isFirst ? 'x' : 'arrow-left'} size={20} color={Colors.ink} />
         </TouchableOpacity>
-
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <AppText variant="label" weight="bold" color={Colors.muted}>
+          <AppText variant="caption" weight="bold" color={Colors.muted}>
             Step {stepIndex + 1} of {STEPS.length}
           </AppText>
           <AppText variant="label" weight="extrabold">{step.title}</AppText>
         </View>
-
-        <TouchableOpacity onPress={handleSaveDraft} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <AppText variant="caption" weight="bold" color={Colors.muted}>Save</AppText>
+        <TouchableOpacity style={styles.headerBtn} onPress={handleSaveDraft} disabled={saving}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <AppText variant="caption" weight="bold" color={saving ? Colors.subtle : Colors.muted}>
+            Save
+          </AppText>
         </TouchableOpacity>
       </View>
 
-      {/* ── Progress ── */}
+      {/* Progress */}
       <ProgressBar current={stepIndex} total={STEPS.length} />
 
-      {/* ── Step icons row ── */}
-      <View style={styles.stepsRow}>
+      {/* Step dots */}
+      <View style={styles.dotsRow}>
         {STEPS.map((s, i) => (
-          <View
-            key={s.key}
-            style={[
-              styles.stepDot,
-              i < stepIndex  && styles.stepDotDone,
-              i === stepIndex && styles.stepDotActive,
-            ]}
-          >
-            {i < stepIndex ? (
-              <Feather name="check" size={10} color={Colors.white} />
-            ) : (
-              <Feather name={s.icon} size={10} color={i === stepIndex ? Colors.white : Colors.border} />
-            )}
+          <View key={s.key} style={[
+            styles.dot,
+            i <  stepIndex && styles.dotDone,
+            i === stepIndex && styles.dotActive,
+          ]}>
+            {i < stepIndex
+              ? <Feather name="check" size={9} color={Colors.white} />
+              : <Feather name={s.icon} size={9} color={i === stepIndex ? Colors.white : Colors.border} />
+            }
           </View>
         ))}
       </View>
 
-      {/* ── Content ── */}
-      <KeyboardAvoidingView
+      {/* Content */}
+      <KeyboardAvoidingView style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={120}
-      >
+        keyboardVerticalOffset={120}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -791,22 +755,16 @@ export default function CreateListingScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ── Bottom CTA ── */}
+      {/* Bottom bar */}
       <View style={styles.bottomBar}>
         <AppButton
-          label={
-            saving    ? 'Publishing…' :
-            isLast    ? 'Publish listing →' :
-            step.key === 'photos' || step.key === 'amenities' || step.key === 'rules'
-              ? 'Continue →'
-              : 'Next →'
-          }
+          label={saving ? 'Publishing…' : isLast ? 'Publish listing →' : isSkippable ? 'Continue →' : 'Next →'}
           onPress={goNext}
           loading={saving}
-          style={!canProceed() && !isLast ? { opacity: 0.5 } : undefined}
+          style={(!canProceed() && !isLast) ? { opacity: 0.5 } : undefined}
         />
-        {(step.key === 'photos' || step.key === 'amenities') && (
-          <TouchableOpacity onPress={goNext} style={styles.skipBtn}>
+        {isSkippable && !isLast && (
+          <TouchableOpacity onPress={skip} style={styles.skipBtn}>
             <AppText variant="label" color={Colors.subtle} center>Skip for now</AppText>
           </TouchableOpacity>
         )}
@@ -815,336 +773,159 @@ export default function CreateListingScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Shared step styles ───────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.white },
+const sh = StyleSheet.create({
+  stepWrap: { gap: Spacing.xl },
+  field:    { gap: Spacing.sm },
 
-  header: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical:   Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    Radius.md,
-    backgroundColor: Colors.bg,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-
-  stepsRow: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'center',
-    gap:               6,
-    paddingVertical:   Spacing.sm,
-  },
-  stepDot: {
-    width:           22,
-    height:          22,
-    borderRadius:    11,
-    backgroundColor: Colors.bg,
-    borderWidth:     1.5,
-    borderColor:     Colors.border,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  stepDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  stepDotDone:   { backgroundColor: Colors.teal,    borderColor: Colors.teal    },
-
-  scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop:        Spacing.lg,
-    paddingBottom:     Spacing['3xl'],
-  },
-
-  stepContent: { gap: Spacing.xl },
-
-  // Category
   catRow: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.md,
-    borderWidth:     1.5,
-    borderColor:     Colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.bg, borderRadius: Radius.lg,
+    padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.border,
   },
-  catRowSelected: {
-    borderColor:     Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  catIconWrap: {
-    width:          48,
-    height:         48,
-    borderRadius:   13,
-    alignItems:     'center',
-    justifyContent: 'center',
-    flexShrink:     0,
-  },
+  catRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  catIcon: { width: 48, height: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 
-  // Text area
-  textAreaWrap: {
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.md,
-    borderWidth:     1.5,
-    borderColor:     Colors.border,
-    padding:         Spacing.md,
+  textAreaBox: {
+    backgroundColor: Colors.bg, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.border, padding: Spacing.md,
   },
   textArea: {
-    fontSize:    14,
-    color:       Colors.ink,
-    fontFamily:  'PlusJakartaSans_400Regular',
-    minHeight:   120,
-    lineHeight:  22,
+    fontSize: 14, color: Colors.ink,
+    fontFamily: 'PlusJakartaSans_400Regular', minHeight: 110, lineHeight: 22,
   },
 
-  // Barangay chips
-  chipBtn: {
-    paddingVertical:   7,
-    paddingHorizontal: 14,
-    borderRadius:      Radius.full,
-    borderWidth:       1.5,
-    borderColor:       Colors.border,
-    backgroundColor:   Colors.white,
-  },
-  chipBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor:     Colors.primary,
-  },
-
-  // Pricing
   unitRow: { flexDirection: 'row', gap: Spacing.sm },
   unitBtn: {
-    flex:              1,
-    paddingVertical:   10,
-    alignItems:        'center',
-    borderRadius:      Radius.md,
-    borderWidth:       1.5,
-    borderColor:       Colors.border,
-    backgroundColor:   Colors.white,
+    flex: 1, paddingVertical: 10, alignItems: 'center',
+    borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white,
   },
   unitBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-
-  priceInputWrap: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.md,
-    borderWidth:     1.5,
-    borderColor:     Colors.border,
-    overflow:        'hidden',
+  priceRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.bg, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.border, overflow: 'hidden',
   },
-  pesoCurrency: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical:   Spacing.md,
-    backgroundColor:   Colors.border,
-    alignItems:        'center',
-    justifyContent:    'center',
+  pesoTag: {
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center',
   },
   priceInput: {
-    flex:        1,
-    fontSize:    24,
-    fontFamily:  'PlusJakartaSans_700Bold',
-    color:       Colors.ink,
-    padding:     Spacing.md,
+    flex: 1, fontSize: 24, fontFamily: 'PlusJakartaSans_700Bold', color: Colors.ink, padding: Spacing.md,
   },
-
   earningsCard: {
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.lg,
-    borderWidth:     1,
-    borderColor:     Colors.border,
+    backgroundColor: Colors.bg, borderRadius: Radius.lg,
+    padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border,
   },
-  earningsRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
+  earningsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
+  toggleCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.bg, borderRadius: Radius.lg,
+    padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border,
   },
 
-  toggleRow: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.lg,
-    borderWidth:     1,
-    borderColor:     Colors.border,
-  },
-
-  // Amenities
-  amenitiesGrid: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           Spacing.sm,
-  },
+  amenityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   amenityBtn: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingVertical:   10,
-    paddingHorizontal: 14,
-    borderRadius:      Radius.md,
-    borderWidth:       1.5,
-    borderColor:       Colors.border,
-    backgroundColor:   Colors.white,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 9, paddingHorizontal: 13,
+    borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white,
   },
-  amenityBtnSelected: {
-    borderColor:     Colors.teal,
-    backgroundColor: Colors.tealLight,
-  },
+  amenityBtnOn: { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
 
-  // Photos
-  photosGrid: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           Spacing.sm,
-  },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   addPhotoBtn: {
-    width:           (W - Spacing.xl * 2 - Spacing.sm * 2) / 3,
-    aspectRatio:     1,
-    borderRadius:    Radius.md,
-    borderWidth:     2,
-    borderStyle:     'dashed',
-    borderColor:     Colors.primary,
-    alignItems:      'center',
-    justifyContent:  'center',
+    borderRadius: Radius.md, borderWidth: 2, borderStyle: 'dashed',
+    borderColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.primaryLight,
   },
-  addPhotoIcon: {
-    width:           44,
-    height:          44,
-    borderRadius:    12,
-    backgroundColor: Colors.white,
-    alignItems:      'center',
-    justifyContent:  'center',
+  addPhotoIconBox: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  photoThumb: {
-    width:        (W - Spacing.xl * 2 - Spacing.sm * 2) / 3,
-    aspectRatio:  1,
-    borderRadius: Radius.md,
-    overflow:     'hidden',
-    position:     'relative',
+  photoThumb: { borderRadius: Radius.md, overflow: 'hidden', position: 'relative' },
+  photoThumbCover: { borderWidth: 2.5, borderColor: Colors.primary },
+  photoImg: { width: '100%', height: '100%' },
+  coverLabel: {
+    position: 'absolute', bottom: 5, left: 5,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.primary, borderRadius: Radius.full,
+    paddingVertical: 3, paddingHorizontal: 6,
   },
-  photoImg: {
-    width:  '100%',
-    height: '100%',
+  coverLabelText: { fontSize: 8, fontWeight: '800', color: Colors.white, marginLeft: 3 },
+  removeBtn: {
+    position: 'absolute', top: 5, right: 5,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
   },
-  coverBadge: {
-    position:          'absolute',
-    bottom:            6,
-    left:              6,
-    backgroundColor:   Colors.primary,
-    borderRadius:      Radius.full,
-    paddingVertical:   3,
-    paddingHorizontal: 7,
-  },
-  removePhotoBtn: {
-    position:        'absolute',
-    top:             6,
-    right:           6,
-    width:           22,
-    height:          22,
-    borderRadius:    11,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
+  photoHint: { flexDirection: 'row', alignItems: 'center' },
 
-  // Rules
   policyRow: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.md,
-    padding:         Spacing.md,
-    borderWidth:     1.5,
-    borderColor:     Colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.bg, borderRadius: Radius.md,
+    padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.border,
   },
-  policyRowSelected: {
-    borderColor:     Colors.primary,
-    backgroundColor: Colors.primaryLight,
+  policyRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  radio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center', marginLeft: Spacing.md, flexShrink: 0,
   },
-  radioOuter: {
-    width:          20,
-    height:         20,
-    borderRadius:   10,
-    borderWidth:    2,
-    borderColor:    Colors.border,
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginLeft:     Spacing.md,
-    flexShrink:     0,
-  },
-  radioOuterActive: { borderColor: Colors.primary },
-  radioInner: {
-    width:           10,
-    height:          10,
-    borderRadius:    5,
-    backgroundColor: Colors.primary,
-  },
+  radioActive: { borderColor: Colors.primary },
+  radioDot:    { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
 
-  // Review
-  previewCard: {
-    borderRadius: Radius.lg,
-    overflow:     'hidden',
-    borderWidth:  1,
-    borderColor:  Colors.border,
-    ...Shadow.sm,
-  },
-  previewImg: {
-    height:         160,
-    alignItems:     'center',
-    justifyContent: 'center',
-    position:       'relative',
-  },
+  previewCard: { borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  previewImg:  { height: 160, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   previewBadge: {
-    position:          'absolute',
-    top:               10,
-    left:              10,
-    backgroundColor:   Colors.ink,
-    borderRadius:      Radius.full,
-    paddingVertical:   4,
-    paddingHorizontal: 9,
+    position: 'absolute', top: 10, left: 10,
+    backgroundColor: Colors.ink, borderRadius: Radius.full, paddingVertical: 4, paddingHorizontal: 9,
   },
-  reviewCard: {
-    backgroundColor: Colors.bg,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.md,
-    borderWidth:     1,
-    borderColor:     Colors.border,
+  previewBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.white },
+  reviewTable: {
+    backgroundColor: Colors.bg, borderRadius: Radius.lg,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
   },
-  reviewRow: {
-    flexDirection:  'row',
-    alignItems:     'flex-start',
-    paddingVertical: Spacing.sm,
+  reviewRow:     { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm },
+  reviewDivider: { height: 1, backgroundColor: Colors.border },
+
+  infoBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: Colors.tealLight, borderRadius: Radius.md, padding: Spacing.md,
   },
-  reviewDivider: {
-    height:          1,
-    backgroundColor: Colors.border,
+});
+
+// ─── Screen styles ────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.white },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  headerBtn: {
+    width: 40, height: 40, borderRadius: Radius.md,
+    backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center',
   },
 
-  // Shared
-  infoBanner: {
-    flexDirection:   'row',
-    alignItems:      'flex-start',
-    backgroundColor: Colors.tealLight,
-    borderRadius:    Radius.md,
-    padding:         Spacing.md,
+  dotsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: Spacing.sm,
   },
+  dot: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: Colors.bg, borderWidth: 1.5, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dotDone:   { backgroundColor: Colors.teal,    borderColor: Colors.teal    },
+
+  scrollContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing['3xl'] },
 
   bottomBar: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical:   Spacing.md,
-    borderTopWidth:    1,
-    borderTopColor:    Colors.border,
-    backgroundColor:   Colors.white,
-    gap:               Spacing.xs,
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.white, gap: Spacing.xs,
   },
   skipBtn: { paddingVertical: Spacing.xs },
 });
