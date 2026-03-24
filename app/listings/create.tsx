@@ -71,7 +71,7 @@ const CATEGORIES: { key: ListingCategory; label: string; desc: string }[] = [
   { key: 'room', label: 'Room / Unit', desc: 'Private room, studio, apartment, or condo' },
   { key: 'vehicle', label: 'Vehicle', desc: 'Car, van, motorcycle, or truck for rent' },
   { key: 'equipment', label: 'Equipment', desc: 'Camera, tools, sound system, or gear' },
-  { key: 'venue', label: 'Event Venue', desc: 'Function hall, rooftop, or outdoor space' },
+  { key: 'event_venue', label: 'Event Venue', desc: 'Function hall, rooftop, or outdoor space' },
   { key: 'meeting_room', label: 'Meeting Room', desc: 'Boardroom, training room, or hot desk' },
   { key: 'storage', label: 'Storage', desc: 'Storage unit, bodega, or warehouse space' },
 ];
@@ -719,10 +719,19 @@ export default function CreateListingScreen() {
       if (draft.photos.length > 0) {
         toast.show('Uploading photos…', 'info');
         const uploads = await Promise.all(
-          draft.photos.map((uri, i) => uploadListingPhoto(user.id, uri, i))
+          draft.photos.map((uri, i) => uploadListingPhoto(user.id, uri, i, listing.id))
         );
         const urls = uploads.filter(r => r.url).map(r => r.url!);
-        if (urls.length > 0) await updateListingPhotos(listing.id, urls);
+        const failed = uploads.filter(r => r.error);
+        if (urls.length > 0) {
+          const { error: pe } = await updateListingPhotos(listing.id, urls);
+          if (pe) toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
+        } else if (failed.length > 0) {
+          toast.show(failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.', 'error');
+        }
+        if (failed.length > 0 && urls.length > 0) {
+          toast.show(`${failed.length} photo(s) failed to upload.`, 'info');
+        }
       }
 
       const { setListingStatus } = await import('@/lib/listingsService');

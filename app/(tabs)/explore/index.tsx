@@ -130,6 +130,12 @@ const CARD_GAP = Spacing.sm;
 const USER_LAT = 7.0831;
 const USER_LNG = 125.6026;
 
+function mapUiCategoryToDb(category: Category) {
+  if (category === 'venue') return 'event_venue';
+  if (category === 'meeting') return 'meeting_room';
+  return category === 'all' ? undefined : category;
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ExploreScreen() {
@@ -145,7 +151,7 @@ export default function ExploreScreen() {
   const [pendingCategory, setPendingCategory] = useState<Category>('all');
 
   const filters = useMemo(() => ({
-    category:  category === 'all' ? undefined : category as any,
+    category:  mapUiCategoryToDb(category) as any,
     search, radiusKm,
     userLat: USER_LAT,
     userLng: USER_LNG,

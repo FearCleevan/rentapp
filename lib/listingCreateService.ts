@@ -10,7 +10,7 @@ export type ListingCategory =
   | 'room'
   | 'vehicle'
   | 'equipment'
-  | 'venue'
+  | 'event_venue'
   | 'meeting_room'
   | 'storage';
 
@@ -76,7 +76,7 @@ export const AMENITY_PRESETS: Record<ListingCategory, string[]> = {
   room:         ['WiFi', 'Aircon', 'Kitchen', 'Hot Shower', 'Netflix', 'Washer', 'Parking', 'Gym', 'Pool Access'],
   vehicle:      ['Self-drive', 'GPS', 'Dash Cam', 'Unlimited KM', 'With Driver', 'Fuel Included', 'Insurance', 'Child Seat'],
   equipment:    ['Carry Bag', 'Extra Battery', 'SD Cards', 'Tripod', 'Lenses Included', 'Manual Included', 'Cleaning Kit'],
-  venue:        ['Tables & Chairs', 'AV System', 'Projector', 'Parking', 'Aircon', 'Catering', 'Stage', 'Sound System'],
+  event_venue:  ['Tables & Chairs', 'AV System', 'Projector', 'Parking', 'Aircon', 'Catering', 'Stage', 'Sound System'],
   meeting_room: ['WiFi', 'Projector', 'Whiteboard', 'Coffee', 'Printer', 'TV Screen', 'Video Conferencing'],
   storage:      ['24/7 Access', 'CCTV', 'Climate Controlled', 'Drive-up Access', 'Shelving', 'Padlock Provided'],
 };
@@ -87,18 +87,29 @@ export async function uploadListingPhoto(
   hostId:   string,
   localUri: string,
   index:    number,
+  listingId?: string,
 ): Promise<{ url: string | null; error: any }> {
   try {
+    const cleanUri = localUri.split('?')[0];
+    const rawExt = cleanUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const ext = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(rawExt) ? rawExt : 'jpg';
     const response = await fetch(localUri);
     const blob     = await response.blob();
-    const ext      = localUri.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const filePath = `${hostId}/${Date.now()}_${index}.${ext}`;
+    const contentType = ext === 'jpg'
+      ? 'image/jpeg'
+      : ext === 'heic'
+        ? 'image/heic'
+        : ext === 'heif'
+          ? 'image/heif'
+          : `image/${ext}`;
+    const scope = listingId ? `${hostId}/${listingId}` : hostId;
+    const filePath = `${scope}/${Date.now()}_${index}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('listing-photos')
       .upload(filePath, blob, {
-        upsert:      true,
-        contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        upsert:      false,
+        contentType,
       });
 
     if (uploadError) return { url: null, error: uploadError };

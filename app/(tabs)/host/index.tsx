@@ -10,6 +10,7 @@ import { router, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
+import { Image } from 'expo-image';
 
 import { AppText }    from '@/components/ui/AppText';
 import { AppButton }  from '@/components/ui/AppButton';
@@ -241,7 +242,11 @@ function ListingRow({
       <TouchableOpacity style={styles.listingRow} activeOpacity={0.85}>
         {/* Icon thumb */}
         <View style={[styles.listingThumb, { backgroundColor: cfg.bg }]}>
-          <CategoryIcon category={item.category} size={22} />
+          {item.cover_photo_url ? (
+            <Image source={{ uri: item.cover_photo_url }} style={styles.listingThumbImg} contentFit="cover" />
+          ) : (
+            <CategoryIcon category={item.category} size={22} />
+          )}
         </View>
 
         <View style={{ flex: 1, marginLeft: Spacing.md }}>
@@ -652,7 +657,9 @@ const styles = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
     flexShrink:      0,
+    overflow:        'hidden',
   },
+  listingThumbImg: { width: '100%', height: '100%' },
   listingDivider: {
     height:           1,
     backgroundColor:  Colors.border,

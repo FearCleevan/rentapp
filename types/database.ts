@@ -14,6 +14,7 @@ export type ListingCategory =
   | 'room'
   | 'vehicle'
   | 'equipment'
+  | 'event_venue'
   | 'venue'
   | 'meeting_room'
   | 'storage';

@@ -30,7 +30,7 @@ const SORT_OPTIONS = ['Nearest', 'Lowest price', 'Top rated', 'Most reviews'] as
 type SortOption = typeof SORT_OPTIONS[number];
 
 function mapUiCategoryToDb(category: Category) {
-  if (category === 'venue') return 'venue';
+  if (category === 'venue') return 'event_venue';
   if (category === 'meeting') return 'meeting_room';
   return category === 'all' ? undefined : category;
 }
