@@ -26,18 +26,18 @@ import {
   Platform, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter }     from 'expo-router';
-import * as ImagePicker  from 'expo-image-picker';
-import { Feather }       from '@expo/vector-icons';
-import { Image }         from 'expo-image';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
-import { AppText }    from '@/components/ui/AppText';
-import { AppButton }  from '@/components/ui/AppButton';
-import { AppInput }   from '@/components/ui/AppInput';
-import { useToast }   from '@/components/ui/Toast';
+import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppInput } from '@/components/ui/AppInput';
+import { useToast } from '@/components/ui/Toast';
 import { CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
-import { LocationPicker }  from '@/components/listing/LocationPicker';
-import { useAuthStore }    from '@/store/authStore';
+import { LocationPicker } from '@/components/listing/LocationPicker';
+import { useAuthStore } from '@/store/authStore';
 import {
   DRAFT_DEFAULTS, AMENITY_PRESETS,
   uploadListingPhoto, createListing, updateListingPhotos,
@@ -45,45 +45,48 @@ import {
 } from '@/lib/listingCreateService';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
+// import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+
 const { width: W } = Dimensions.get('window');
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { key: 'category',  title: 'Choose a category',    icon: 'grid'         as FeatherName },
-  { key: 'details',   title: 'Describe your space',  icon: 'edit-3'       as FeatherName },
-  { key: 'location',  title: 'Where is it located?', icon: 'map-pin'      as FeatherName },
-  { key: 'pricing',   title: 'Set your price',       icon: 'dollar-sign'  as FeatherName },
-  { key: 'amenities', title: 'What does it offer?',  icon: 'check-circle' as FeatherName },
-  { key: 'photos',    title: 'Add photos',           icon: 'camera'       as FeatherName },
-  { key: 'rules',     title: 'Rules & policy',       icon: 'file-text'    as FeatherName },
-  { key: 'review',    title: 'Review & publish',     icon: 'eye'          as FeatherName },
+  { key: 'category', title: 'Choose a category', icon: 'grid' as FeatherName },
+  { key: 'details', title: 'Describe your space', icon: 'edit-3' as FeatherName },
+  { key: 'location', title: 'Where is it located?', icon: 'map-pin' as FeatherName },
+  { key: 'pricing', title: 'Set your price', icon: 'dollar-sign' as FeatherName },
+  { key: 'amenities', title: 'What does it offer?', icon: 'check-circle' as FeatherName },
+  { key: 'photos', title: 'Add photos', icon: 'camera' as FeatherName },
+  { key: 'rules', title: 'Rules & policy', icon: 'file-text' as FeatherName },
+  { key: 'review', title: 'Review & publish', icon: 'eye' as FeatherName },
 ] as const;
 
 type StepKey = typeof STEPS[number]['key'];
 
 const CATEGORIES: { key: ListingCategory; label: string; desc: string }[] = [
-  { key: 'parking',      label: 'Parking',      desc: 'Parking slot, garage, or covered space'    },
-  { key: 'room',         label: 'Room / Unit',  desc: 'Private room, studio, apartment, or condo' },
-  { key: 'vehicle',      label: 'Vehicle',      desc: 'Car, van, motorcycle, or truck for rent'   },
-  { key: 'equipment',    label: 'Equipment',    desc: 'Camera, tools, sound system, or gear'      },
-  { key: 'event_venue',  label: 'Event Venue',  desc: 'Function hall, rooftop, or outdoor space'  },
-  { key: 'meeting_room', label: 'Meeting Room', desc: 'Boardroom, training room, or hot desk'     },
-  { key: 'storage',      label: 'Storage',      desc: 'Storage unit, bodega, or warehouse space'  },
+  { key: 'parking', label: 'Parking', desc: 'Parking slot, garage, or covered space' },
+  { key: 'room', label: 'Room / Unit', desc: 'Private room, studio, apartment, or condo' },
+  { key: 'vehicle', label: 'Vehicle', desc: 'Car, van, motorcycle, or truck for rent' },
+  { key: 'equipment', label: 'Equipment', desc: 'Camera, tools, sound system, or gear' },
+  { key: 'event_venue', label: 'Event Venue', desc: 'Function hall, rooftop, or outdoor space' },
+  { key: 'meeting_room', label: 'Meeting Room', desc: 'Boardroom, training room, or hot desk' },
+  { key: 'storage', label: 'Storage', desc: 'Storage unit, bodega, or warehouse space' },
 ];
 
 const PRICE_UNITS: { key: PriceUnit; label: string }[] = [
-  { key: 'hour',  label: 'Per hour'  },
-  { key: 'day',   label: 'Per day'   },
-  { key: 'week',  label: 'Per week'  },
+  { key: 'hour', label: 'Per hour' },
+  { key: 'day', label: 'Per day' },
+  { key: 'week', label: 'Per week' },
   { key: 'month', label: 'Per month' },
 ];
 
 const CANCELLATION_OPTS = [
-  { key: 'flexible' as const, label: 'Flexible', desc: 'Full refund if cancelled 48h before'     },
-  { key: 'moderate' as const, label: 'Moderate', desc: '50% refund if cancelled 24–48h before'  },
-  { key: 'strict'   as const, label: 'Strict',   desc: 'No refund within 48h of booking'        },
+  { key: 'flexible' as const, label: 'Flexible', desc: 'Full refund if cancelled 48h before' },
+  { key: 'moderate' as const, label: 'Moderate', desc: '50% refund if cancelled 24–48h before' },
+  { key: 'strict' as const, label: 'Strict', desc: 'No refund within 48h of booking' },
 ];
 
 // ─── Small shared components ──────────────────────────────────────────────────
@@ -97,7 +100,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
 }
 const pb = StyleSheet.create({
   track: { height: 3, backgroundColor: Colors.border, marginHorizontal: Spacing.xl, borderRadius: 2 },
-  fill:  { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
+  fill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
 });
 
 function FieldLabel({ title }: { title: string }) {
@@ -128,7 +131,7 @@ function StepCategory({ draft, onChange }: {
     <View style={sh.stepWrap}>
       <AppText variant="body" color={Colors.muted}>What type of space are you listing?</AppText>
       {CATEGORIES.map(cat => {
-        const cfg      = CATEGORY_CONFIG[cat.key] ?? CATEGORY_CONFIG.storage;
+        const cfg = CATEGORY_CONFIG[cat.key] ?? CATEGORY_CONFIG.storage;
         const selected = draft.category === cat.key;
         return (
           <TouchableOpacity
@@ -212,9 +215,9 @@ function StepLocation({ draft, update }: {
         value={{ address: draft.address, city: draft.city, lat: draft.lat, lng: draft.lng }}
         onChange={loc => {
           update('address', loc.address);
-          update('city',    loc.city);
-          update('lat',     loc.lat);
-          update('lng',     loc.lng);
+          update('city', loc.city);
+          update('lat', loc.lat);
+          update('lng', loc.lng);
         }}
       />
 
@@ -229,8 +232,8 @@ function StepPricing({ draft, update }: {
   draft: ListingDraft;
   update: (k: keyof ListingDraft, v: any) => void;
 }) {
-  const price = parseFloat(draft.price)   || 0;
-  const earn  = price * 0.87;
+  const price = parseFloat(draft.price) || 0;
+  const earn = price * 0.87;
 
   return (
     <View style={sh.stepWrap}>
@@ -293,10 +296,10 @@ function StepPricing({ draft, update }: {
             Earnings breakdown
           </AppText>
           {[
-            { label: 'Renter pays',       value: `₱${price.toLocaleString()}`,      color: Colors.ink   },
+            { label: 'Renter pays', value: `₱${price.toLocaleString()}`, color: Colors.ink },
             { label: 'Service fee (10%)', value: `−₱${(price * 0.10).toFixed(0)}`, color: Colors.muted },
-            { label: 'Host fee (3%)',     value: `−₱${(price * 0.03).toFixed(0)}`, color: Colors.muted },
-            { label: 'You receive',       value: `₱${earn.toFixed(0)}`,            color: Colors.teal  },
+            { label: 'Host fee (3%)', value: `−₱${(price * 0.03).toFixed(0)}`, color: Colors.muted },
+            { label: 'You receive', value: `₱${earn.toFixed(0)}`, color: Colors.teal },
           ].map(row => (
             <View key={row.label} style={sh.earningsRow}>
               <AppText variant="label" color={Colors.muted}>{row.label}</AppText>
@@ -382,11 +385,11 @@ function StepPhotos({ draft, update }: {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes:              ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      selectionLimit:          remaining,
-      quality:                 0.85,
-      allowsEditing:           false,
+      selectionLimit: remaining,
+      quality: 0.85,
+      allowsEditing: false,
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -528,55 +531,114 @@ function StepReview({ draft }: { draft: ListingDraft }) {
     ? CATEGORY_CONFIG[draft.category] ?? CATEGORY_CONFIG.storage
     : CATEGORY_CONFIG.storage;
 
+  const [activeImage, setActiveImage] = useState(
+    draft.photos?.[0] || null
+  );
+
   const rows = [
-    { label: 'Category',     value: CATEGORIES.find(c => c.key === draft.category)?.label ?? '—' },
-    { label: 'Title',        value: draft.title || '—' },
-    { label: 'Address',      value: [draft.address, draft.city].filter(Boolean).join(', ') || '—' },
-    { label: 'Price',        value: draft.price ? `₱${parseFloat(draft.price).toLocaleString()} / ${draft.price_unit}` : '—' },
-    { label: 'Deposit',      value: draft.deposit && parseFloat(draft.deposit) > 0 ? `₱${parseFloat(draft.deposit).toLocaleString()}` : 'None' },
+    { label: 'Category', value: CATEGORIES.find(c => c.key === draft.category)?.label ?? '—' },
+    { label: 'Title', value: draft.title || '—' },
+    { label: 'Address', value: [draft.address, draft.city].filter(Boolean).join(', ') || '—' },
+    { label: 'Price', value: draft.price ? `₱${parseFloat(draft.price).toLocaleString()} / ${draft.price_unit}` : '—' },
+    { label: 'Deposit', value: draft.deposit && parseFloat(draft.deposit) > 0 ? `₱${parseFloat(draft.deposit).toLocaleString()}` : 'None' },
     { label: 'Instant Book', value: draft.instant_book ? 'Yes' : 'No' },
-    { label: 'Amenities',    value: draft.amenities.length > 0 ? draft.amenities.join(', ') : 'None' },
-    { label: 'Photos',       value: `${draft.photos.length} photo${draft.photos.length !== 1 ? 's' : ''}` },
-    { label: 'Policy',       value: draft.cancellation_policy.charAt(0).toUpperCase() + draft.cancellation_policy.slice(1) },
+    { label: 'Amenities', value: draft.amenities.length > 0 ? draft.amenities.join(', ') : 'None' },
+    { label: 'Photos', value: `${draft.photos.length} photo${draft.photos.length !== 1 ? 's' : ''}` },
+    { label: 'Policy', value: draft.cancellation_policy.charAt(0).toUpperCase() + draft.cancellation_policy.slice(1) },
   ];
 
   return (
     <View style={sh.stepWrap}>
       <View style={sh.previewCard}>
-        <View style={[sh.previewImg, { backgroundColor: cfg.bg }]}>
-          {draft.photos.length > 0 ? (
-            <Image source={{ uri: draft.photos[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+
+        {/* IMAGE SECTION */}
+        <View style={sh.previewImg}>
+          {activeImage ? (
+            <Image
+              source={{ uri: activeImage }}
+              style={StyleSheet.absoluteFillObject}
+              contentFit="cover"
+            />
           ) : (
-            <Feather name={cfg.icon} size={44} color={cfg.color} />
+            <View style={[StyleSheet.absoluteFillObject, {
+              backgroundColor: cfg.bg,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }]}>
+              <Feather name={cfg.icon} size={44} color={cfg.color} />
+            </View>
           )}
+
+          {/* GRADIENT */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.45)']}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* GLASS TEXT */}
+          <View style={sh.glassOverlay}>
+            {/* Fallback glass effect */}
+            <View style={sh.glassFallback} />
+
+            {/* CONTENT */}
+            <View style={{ position: 'relative' }}>
+              <AppText variant="label" weight="bold" numberOfLines={1} style={{ color: 'white' }}>
+                {draft.title || 'Your listing title'}
+              </AppText>
+
+              <AppText variant="caption" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
+                {draft.city || 'Davao City'}
+              </AppText>
+
+              <AppText variant="bodyLg" weight="extrabold" style={{ color: 'white', marginTop: 6 }}>
+                {draft.price ? `₱${parseFloat(draft.price).toLocaleString()}` : '₱0'}
+                <AppText variant="caption" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  /{draft.price_unit}
+                </AppText>
+              </AppText>
+            </View>
+          </View>
+
+          {/* PREVIEW BADGE */}
           <View style={sh.previewBadge}>
             <AppText style={sh.previewBadgeText}>PREVIEW</AppText>
           </View>
         </View>
-        <View style={{ padding: Spacing.md }}>
-          <AppText variant="label" weight="bold" numberOfLines={1}>
-            {draft.title || 'Your listing title'}
-          </AppText>
-          <AppText variant="caption" color={Colors.muted} style={{ marginTop: 2 }}>
-            {draft.city || 'Davao City'}
-          </AppText>
-          <AppText variant="bodyLg" weight="extrabold" color={Colors.primary} style={{ marginTop: 6 }}>
-            {draft.price ? `₱${parseFloat(draft.price).toLocaleString()}` : '₱0'}
-            <AppText variant="caption" color={Colors.subtle}>/{draft.price_unit}</AppText>
-          </AppText>
-        </View>
+
+        {/* 🔥 THUMBNAILS (OUTSIDE IMAGE) */}
+        {draft.photos.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={sh.previewThumbRow}
+          >
+            {draft.photos.map((uri) => {
+              const active = uri === activeImage;
+              return (
+                <TouchableOpacity
+                  key={uri}
+                  onPress={() => setActiveImage(uri)}
+                  style={[sh.previewThumb, active && sh.previewThumbActive]}
+                >
+                  <Image source={{ uri }} style={sh.previewThumbImg} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
 
+      {/* DETAILS TABLE */}
       <View style={sh.reviewTable}>
         {rows.map((row, i) => (
           <View key={row.label}>
             {i > 0 && <View style={sh.reviewDivider} />}
             <View style={sh.reviewRow}>
               <AppText variant="caption" weight="bold" color={Colors.subtle}
-                style={{ width: 90, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                style={{ width: 90, fontSize: 10, textTransform: 'uppercase' }}>
                 {row.label}
               </AppText>
-              <AppText variant="label" color={Colors.ink} style={{ flex: 1, marginLeft: Spacing.md }}>
+              <AppText variant="label" style={{ flex: 1, marginLeft: Spacing.md }}>
                 {row.value}
               </AppText>
             </View>
@@ -590,18 +652,18 @@ function StepReview({ draft }: { draft: ListingDraft }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CreateListingScreen() {
-  const router    = useRouter();
-  const toast     = useToast();
-  const { user }  = useAuthStore();
+  const router = useRouter();
+  const toast = useToast();
+  const { user } = useAuthStore();
   const scrollRef = useRef<ScrollView>(null);
 
   const [stepIndex, setStepIndex] = useState(0);
-  const [draft,     setDraft]     = useState<ListingDraft>(DRAFT_DEFAULTS);
-  const [saving,    setSaving]    = useState(false);
+  const [draft, setDraft] = useState<ListingDraft>(DRAFT_DEFAULTS);
+  const [saving, setSaving] = useState(false);
 
-  const step    = STEPS[stepIndex];
+  const step = STEPS[stepIndex];
   const isFirst = stepIndex === 0;
-  const isLast  = stepIndex === STEPS.length - 1;
+  const isLast = stepIndex === STEPS.length - 1;
 
   function update(key: keyof ListingDraft, value: any) {
     setDraft(prev => ({ ...prev, [key]: value }));
@@ -611,21 +673,21 @@ export default function CreateListingScreen() {
 
   function canProceed(): boolean {
     switch (step.key) {
-      case 'category':  return !!draft.category;
-      case 'details':   return draft.title.trim().length >= 5;
-      case 'location':  return draft.address.trim().length >= 5;
-      case 'pricing':   return !!draft.price && parseFloat(draft.price) > 0;
-      default:          return true;
+      case 'category': return !!draft.category;
+      case 'details': return draft.title.trim().length >= 5;
+      case 'location': return draft.address.trim().length >= 5;
+      case 'pricing': return !!draft.price && parseFloat(draft.price) > 0;
+      default: return true;
     }
   }
 
   function validationMsg(): string {
     switch (step.key) {
       case 'category': return 'Please select a category to continue.';
-      case 'details':  return 'Title must be at least 5 characters.';
+      case 'details': return 'Title must be at least 5 characters.';
       case 'location': return 'Please set a location on the map.';
-      case 'pricing':  return 'Please set a price greater than ₱0.';
-      default:         return '';
+      case 'pricing': return 'Please set a price greater than ₱0.';
+      default: return '';
     }
   }
 
@@ -723,7 +785,7 @@ export default function CreateListingScreen() {
         {STEPS.map((s, i) => (
           <View key={s.key} style={[
             styles.dot,
-            i <  stepIndex && styles.dotDone,
+            i < stepIndex && styles.dotDone,
             i === stepIndex && styles.dotActive,
           ]}>
             {i < stepIndex
@@ -744,14 +806,14 @@ export default function CreateListingScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {step.key === 'category'  && <StepCategory  draft={draft} onChange={v => update('category', v)} />}
-          {step.key === 'details'   && <StepDetails   draft={draft} update={update} />}
-          {step.key === 'location'  && <StepLocation  draft={draft} update={update} />}
-          {step.key === 'pricing'   && <StepPricing   draft={draft} update={update} />}
+          {step.key === 'category' && <StepCategory draft={draft} onChange={v => update('category', v)} />}
+          {step.key === 'details' && <StepDetails draft={draft} update={update} />}
+          {step.key === 'location' && <StepLocation draft={draft} update={update} />}
+          {step.key === 'pricing' && <StepPricing draft={draft} update={update} />}
           {step.key === 'amenities' && <StepAmenities draft={draft} update={update} />}
-          {step.key === 'photos'    && <StepPhotos    draft={draft} update={update} />}
-          {step.key === 'rules'     && <StepRules     draft={draft} update={update} />}
-          {step.key === 'review'    && <StepReview    draft={draft} />}
+          {step.key === 'photos' && <StepPhotos draft={draft} update={update} />}
+          {step.key === 'rules' && <StepRules draft={draft} update={update} />}
+          {step.key === 'review' && <StepReview draft={draft} />}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -777,7 +839,46 @@ export default function CreateListingScreen() {
 
 const sh = StyleSheet.create({
   stepWrap: { gap: Spacing.xl },
-  field:    { gap: Spacing.sm },
+  field: { gap: Spacing.sm },
+
+  previewThumbRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+
+  previewThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+
+  previewThumbActive: {
+    borderColor: Colors.primary,
+  },
+
+  previewThumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+
+  glassOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: Spacing.md,
+  },
+
+  glassFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)', // glass effect
+    // backdropFilter: 'blur(10px)', // ignored on native but safe
+  },
 
   catRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -871,10 +972,14 @@ const sh = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginLeft: Spacing.md, flexShrink: 0,
   },
   radioActive: { borderColor: Colors.primary },
-  radioDot:    { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
 
-  previewCard: { borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
-  previewImg:  { height: 160, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  previewCard: {
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.black, // fallback behind image
+  },
+  previewImg: { height: 450, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   previewBadge: {
     position: 'absolute', top: 10, left: 10,
     backgroundColor: Colors.ink, borderRadius: Radius.full, paddingVertical: 4, paddingHorizontal: 9,
@@ -884,7 +989,7 @@ const sh = StyleSheet.create({
     backgroundColor: Colors.bg, borderRadius: Radius.lg,
     padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
   },
-  reviewRow:     { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm },
+  reviewRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm },
   reviewDivider: { height: 1, backgroundColor: Colors.border },
 
   infoBanner: {
@@ -918,7 +1023,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   dotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dotDone:   { backgroundColor: Colors.teal,    borderColor: Colors.teal    },
+  dotDone: { backgroundColor: Colors.teal, borderColor: Colors.teal },
 
   scrollContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing['3xl'] },
 

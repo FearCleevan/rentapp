@@ -32,7 +32,7 @@ import * as Location from 'expo-location';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MAP_H = 300;
+const MAP_H = 420;
 const SAVED_KEY = 'rentapp_saved_locations_v1';
 const MAX_SAVED = 5;
 // Nominatim requires a real User-Agent — replace with your app contact
@@ -501,6 +501,7 @@ export function LocationPicker({ value, onChange }: Props) {
                     showsUserLocation
                     showsMyLocationButton={false}
                     showsCompass={false}
+                    showsTraffic={false}
                     toolbarEnabled={false}
                     mapType="standard"
                 >
@@ -769,10 +770,11 @@ const s = StyleSheet.create({
 
     // Map
     mapContainer: {
-        borderRadius: Radius.lg,
+        width: '100%',
+        height: MAP_H,
+        marginHorizontal: 0, // FULL BLEED 🔥
+        borderRadius: 8,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: Colors.border,
         position: 'relative',
     },
     map: { width: '100%', height: MAP_H },
