@@ -723,14 +723,21 @@ export default function CreateListingScreen() {
         );
         const urls = uploads.filter(r => r.url).map(r => r.url!);
         const failed = uploads.filter(r => r.error);
-        if (urls.length > 0) {
-          const { error: pe } = await updateListingPhotos(listing.id, urls);
-          if (pe) toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
-        } else if (failed.length > 0) {
-          toast.show(failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.', 'error');
+
+        if (failed.length > 0) {
+          const msg = failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.';
+          toast.show(msg, 'error');
+          throw new Error(msg);
         }
-        if (failed.length > 0 && urls.length > 0) {
-          toast.show(`${failed.length} photo(s) failed to upload.`, 'info');
+
+        if (urls.length === 0) {
+          throw new Error('No photos were uploaded.');
+        }
+
+        const { error: pe } = await updateListingPhotos(listing.id, urls);
+        if (pe) {
+          toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
+          throw new Error(pe?.message ?? 'Failed to save image URLs to listing.');
         }
       }
 

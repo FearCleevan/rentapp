@@ -2,6 +2,7 @@
 // All operations for creating and managing listings including photo upload.
 
 import { supabase } from './supabase';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,11 +90,20 @@ export async function uploadListingPhoto(
   index:    number,
   listingId?: string,
 ): Promise<{ url: string | null; error: any }> {
+  let tempUri: string | null = null;
   try {
-    const cleanUri = localUri.split('?')[0];
+    let sourceUri = localUri;
+    if (localUri.startsWith('content://') && FileSystem.cacheDirectory) {
+      const to = `${FileSystem.cacheDirectory}listing-upload-${Date.now()}-${index}.jpg`;
+      await FileSystem.copyAsync({ from: localUri, to });
+      sourceUri = to;
+      tempUri = to;
+    }
+
+    const cleanUri = sourceUri.split('?')[0];
     const rawExt = cleanUri.split('.').pop()?.toLowerCase() ?? 'jpg';
     const ext = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(rawExt) ? rawExt : 'jpg';
-    const response = await fetch(localUri);
+    const response = await fetch(sourceUri);
     const blob     = await response.blob();
     const contentType = ext === 'jpg'
       ? 'image/jpeg'
@@ -118,8 +128,15 @@ export async function uploadListingPhoto(
       .from('listing-photos')
       .getPublicUrl(filePath);
 
+    if (tempUri) {
+      try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+    }
+
     return { url: data.publicUrl, error: null };
   } catch (e: any) {
+    if (tempUri) {
+      try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+    }
     return { url: null, error: { message: e?.message } };
   }
 }
