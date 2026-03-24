@@ -229,9 +229,9 @@ export function LocationPicker({ value, onChange }: Props) {
         loadPins().then(p => { setSavedPins(p); setPinsLoaded(true); });
     }, []);
 
-    useEffect(() => {
-        getCurrentLocation(true);
-    }, []);
+    // useEffect(() => {
+    //     getCurrentLocation(true);
+    // }, []);
 
     // ── Search input handler ──────────────────────────────────────────────────
     function onSearchChange(text: string) {
@@ -314,7 +314,7 @@ export function LocationPicker({ value, onChange }: Props) {
                     { text: 'Cancel', style: 'cancel' },
                     {
                         text: 'Save',
-                        onPress: async (input) => {
+                        onPress: async (input: string | undefined) => {
                             const label = input?.trim() || autoLabel;
                             await doSavePin(label);
                         },
