@@ -1,12 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import MapView, {
-  Marker, Polyline, Region, UrlTile, PROVIDER_DEFAULT,
-} from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { AppText } from '@/components/ui/AppText';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
+
+let Maps: any = null;
+try {
+  Maps = require('react-native-maps');
+} catch {
+  Maps = null;
+}
+
+const MapView = Maps?.default ?? null;
+const Marker = Maps?.Marker ?? null;
+const Polyline = Maps?.Polyline ?? null;
+const UrlTile = Maps?.UrlTile ?? null;
+const PROVIDER_DEFAULT = Maps?.PROVIDER_DEFAULT;
+const MAPS_AVAILABLE = !!MapView;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,7 +78,7 @@ export function MapPreview({
   userLat,
   userLng,
 }: Props) {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const watchSubRef = useRef<Location.LocationSubscription | null>(null);
 
   // Store region in a ref, NOT state — never pass it as a controlled prop
