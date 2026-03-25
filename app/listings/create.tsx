@@ -664,6 +664,8 @@ export default function CreateListingScreen() {
   const [draft, setDraft] = useState<ListingDraft>(DRAFT_DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(!!listingId);
+  const [workingListingId, setWorkingListingId] = useState<string | null>(listingId);
+  const submitLockRef = useRef(false);
 
   const step = STEPS[stepIndex];
   const isFirst = stepIndex === 0;
@@ -715,6 +717,7 @@ export default function CreateListingScreen() {
       }
 
       setDraft(listingRowToDraft(data));
+      setWorkingListingId(data.id);
       setLoadingExisting(false);
     }
 
@@ -722,8 +725,24 @@ export default function CreateListingScreen() {
     return () => { cancelled = true; };
   }, [listingId, user?.id, router, toast]);
 
+  useEffect(() => {
+    setWorkingListingId(listingId);
+  }, [listingId]);
+
+  function beginSubmit() {
+    if (submitLockRef.current || saving || loadingExisting) return false;
+    submitLockRef.current = true;
+    setSaving(true);
+    return true;
+  }
+
+  function endSubmit() {
+    submitLockRef.current = false;
+    setSaving(false);
+  }
+
   function goNext() {
-    if (saving || loadingExisting) return;
+    if (saving || loadingExisting || submitLockRef.current) return;
     if (!canProceed()) { toast.show(validationMsg(), 'error'); return; }
     if (isLast) { handlePublish(); return; }
     setStepIndex(i => i + 1);
@@ -739,15 +758,23 @@ export default function CreateListingScreen() {
   function skip() { setStepIndex(i => i + 1); scrollTop(); }
 
   async function handlePublish() {
-    if (!user?.id || saving || loadingExisting) return;
-    setSaving(true);
+    if (!user?.id || !beginSubmit()) return;
     try {
-      const { data: listing, error: ce } = listingId
-        ? await updateListing(listingId, user.id, draft, 'draft')
-        : await createListing(user.id, draft, 'draft');
-      if (ce || !listing) {
-        toast.show(ce?.message ?? 'Failed to save listing.', 'error');
-        return;
+      let targetListingId = workingListingId;
+      if (targetListingId) {
+        const { error: ue } = await updateListing(targetListingId, user.id, draft, 'draft');
+        if (ue) {
+          toast.show(ue?.message ?? 'Failed to save listing.', 'error');
+          return;
+        }
+      } else {
+        const { data: created, error: ce } = await createListing(user.id, draft, 'draft');
+        if (ce || !created) {
+          toast.show(ce?.message ?? 'Failed to create listing.', 'error');
+          return;
+        }
+        targetListingId = created.id;
+        setWorkingListingId(created.id);
       }
 
       if (draft.photos.length > 0) {
@@ -758,7 +785,7 @@ export default function CreateListingScreen() {
         if (localUris.length > 0) {
           toast.show('Uploading photos...', 'info');
           const uploads = await Promise.all(
-            localUris.map((uri, i) => uploadListingPhoto(user.id, uri, i, listing.id))
+            localUris.map((uri, i) => uploadListingPhoto(user.id, uri, i, targetListingId))
           );
           const failed = uploads.filter((r) => r.error);
 
@@ -774,14 +801,14 @@ export default function CreateListingScreen() {
         const urls = [...existingUrls, ...uploadedUrls];
         if (urls.length === 0) throw new Error('No photos were uploaded.');
 
-        const { error: pe } = await updateListingPhotos(listing.id, urls);
+        const { error: pe } = await updateListingPhotos(targetListingId, urls);
         if (pe) {
           toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
           throw new Error(pe?.message ?? 'Failed to save image URLs to listing.');
         }
       }
       const { setListingStatus } = await import('@/lib/listingsService');
-      const { error: ae } = await setListingStatus(listing.id, 'active');
+      const { error: ae } = await setListingStatus(targetListingId, 'active');
 
       toast.show(ae ? 'Saved. Activate it from Host tab.' : 'Listing published!',
         ae ? 'info' : 'success');
@@ -790,23 +817,29 @@ export default function CreateListingScreen() {
     } catch (e: any) {
       toast.show(e?.message ?? 'Something went wrong.', 'error');
     } finally {
-      setSaving(false);
+      endSubmit();
     }
   }
 
   async function handleSaveDraft() {
-    if (!user?.id || saving || loadingExisting || !draft.category || !draft.title.trim()) {
+    if (!user?.id || !draft.category || !draft.title.trim() || !beginSubmit()) {
       Alert.alert('Cannot save draft', 'Please select a category and enter a title first.');
       return;
     }
-    setSaving(true);
-    const { error } = listingId
-      ? await updateListing(listingId, user.id, draft, 'draft')
-      : await createListing(user.id, draft, 'draft');
-    setSaving(false);
-    if (error) { toast.show('Failed to save draft.', 'error'); return; }
-    toast.show('Draft saved.', 'success');
-    router.back();
+    try {
+      if (workingListingId) {
+        const { error } = await updateListing(workingListingId, user.id, draft, 'draft');
+        if (error) { toast.show('Failed to save draft.', 'error'); return; }
+      } else {
+        const { data, error } = await createListing(user.id, draft, 'draft');
+        if (error || !data) { toast.show('Failed to save draft.', 'error'); return; }
+        setWorkingListingId(data.id);
+      }
+      toast.show('Draft saved.', 'success');
+      router.back();
+    } finally {
+      endSubmit();
+    }
   }
 
   const isSkippable = step.key === 'amenities' || step.key === 'photos' || step.key === 'rules';
