@@ -292,12 +292,12 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                 <Feather name="map-pin" size={13} color={Colors.subtle} />
                 <AppText variant="body" color={Colors.muted} style={{ marginLeft:6, flex:1 }}>{listing.location}</AppText>
               </View>
-              <View style={{ flexDirection:'row', alignItems:'center', marginBottom:Spacing.md }}>
+              {/* <View style={{ flexDirection:'row', alignItems:'center', marginBottom:Spacing.md }}>
                 <Feather name="crosshair" size={13} color={Colors.primary} />
                 <AppText variant="caption" color={Colors.primary} style={{ marginLeft:6 }}>
                   Tap "Get directions" below to navigate from your current location
                 </AppText>
-              </View>
+              </View> */}
               <MapPreview
                 listingLat={listing.lat}
                 listingLng={listing.lng}

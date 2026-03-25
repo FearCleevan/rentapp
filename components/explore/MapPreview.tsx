@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Linking } from 'react-native';
-import MapView, { Marker, Polyline, Region, UrlTile, PROVIDER_DEFAULT } from 'react-native-maps';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import MapView, {
+  Marker, Polyline, Region, UrlTile, PROVIDER_DEFAULT,
+} from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { AppText } from '@/components/ui/AppText';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
   listingLat: number;
@@ -16,6 +20,8 @@ interface Props {
   userLng?: number;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function regionForPoints(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
@@ -24,30 +30,31 @@ function regionForPoints(
   const maxLat = Math.max(a.lat, b.lat);
   const minLng = Math.min(a.lng, b.lng);
   const maxLng = Math.max(a.lng, b.lng);
-
-  const latitude = (minLat + maxLat) / 2;
-  const longitude = (minLng + maxLng) / 2;
-  const latitudeDelta = Math.max(0.01, (maxLat - minLat) * 1.8);
-  const longitudeDelta = Math.max(0.01, (maxLng - minLng) * 1.8);
-
-  return { latitude, longitude, latitudeDelta, longitudeDelta };
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max(0.01, (maxLat - minLat) * 1.8),
+    longitudeDelta: Math.max(0.01, (maxLng - minLng) * 1.8),
+  };
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2
-    + Math.cos((lat1 * Math.PI) / 180)
-    * Math.cos((lat2 * Math.PI) / 180)
-    * Math.sin(dLng / 2) ** 2;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function MapPreview({
   listingLat,
   listingLng,
-  listingEmoji,
   listingTitle,
   listingAddress,
   userLat,
@@ -56,43 +63,41 @@ export function MapPreview({
   const mapRef = useRef<MapView>(null);
   const watchSubRef = useRef<Location.LocationSubscription | null>(null);
 
-  const [deviceLoc, setDeviceLoc] = useState<{ lat: number; lng: number } | null>(null);
-  const [region, setRegion] = useState<Region>(() => (
+  // Store region in a ref, NOT state — never pass it as a controlled prop
+  // to MapView. Doing so resets heading to 0 on every render = snap-back bug.
+  const regionRef = useRef<Region>(
     regionForPoints(
       { lat: userLat ?? 7.0831, lng: userLng ?? 125.6026 },
       { lat: listingLat, lng: listingLng },
-    )
-  ));
+    ),
+  );
+
+  const [deviceLoc, setDeviceLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [routeCoords, setRouteCoords] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [snappedOrigin, setSnappedOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [snappedDest, setSnappedDest] = useState<{ lat: number; lng: number } | null>(null);
   const [routeKm, setRouteKm] = useState<number | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [followUser, setFollowUser] = useState(true);
 
+  // ── GPS watch ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted' || !mounted) return;
-
-        const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const initial = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
         if (!mounted) return;
         setDeviceLoc({ lat: initial.coords.latitude, lng: initial.coords.longitude });
-
         watchSubRef.current = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Balanced,
-            timeInterval: 5000,
-            distanceInterval: 8,
-          },
-          (loc) => {
-            setDeviceLoc({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-          },
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 8 },
+          (loc) => setDeviceLoc({ lat: loc.coords.latitude, lng: loc.coords.longitude }),
         );
-      } catch {
-      }
+      } catch {}
     })();
-
     return () => {
       mounted = false;
       watchSubRef.current?.remove();
@@ -100,6 +105,7 @@ export function MapPreview({
     };
   }, []);
 
+  // ── Derived origin ─────────────────────────────────────────────────────────
   const origin = useMemo(() => {
     if (deviceLoc) return deviceLoc;
     if (userLat != null && userLng != null) return { lat: userLat, lng: userLng };
@@ -111,13 +117,15 @@ export function MapPreview({
     [origin.lat, origin.lng, listingLat, listingLng],
   );
 
+  // ── Auto-fit when origin updates (only while followUser=true) ──────────────
   useEffect(() => {
-    const fitted = regionForPoints(origin, { lat: listingLat, lng: listingLng });
     if (!followUser) return;
-    setRegion(fitted);
+    const fitted = regionForPoints(origin, { lat: listingLat, lng: listingLng });
+    regionRef.current = fitted;
     mapRef.current?.animateToRegion(fitted, 300);
   }, [origin.lat, origin.lng, listingLat, listingLng, followUser]);
 
+  // ── OSRM route fetch ───────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
@@ -132,13 +140,18 @@ export function MapPreview({
         if (cancelled) return;
 
         const route = json?.routes?.[0];
-        const coordinates: Array<[number, number]> = route?.geometry?.coordinates ?? [];
-        if (coordinates.length > 1) {
-          setRouteCoords(
-            coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng })),
-          );
+        const coords: Array<[number, number]> = route?.geometry?.coordinates ?? [];
+
+        if (coords.length > 1) {
+          const [sLng, sLat] = coords[0];
+          const [eLng, eLat] = coords[coords.length - 1];
+          setSnappedOrigin({ lat: sLat, lng: sLng });
+          setSnappedDest({ lat: eLat, lng: eLng });
+          setRouteCoords(coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng })));
           setRouteKm(typeof route?.distance === 'number' ? route.distance / 1000 : null);
         } else {
+          setSnappedOrigin(null);
+          setSnappedDest(null);
           setRouteCoords([
             { latitude: origin.lat, longitude: origin.lng },
             { latitude: listingLat, longitude: listingLng },
@@ -147,6 +160,8 @@ export function MapPreview({
         }
       } catch {
         if (!cancelled) {
+          setSnappedOrigin(null);
+          setSnappedDest(null);
           setRouteCoords([
             { latitude: origin.lat, longitude: origin.lng },
             { latitude: listingLat, longitude: listingLng },
@@ -157,37 +172,58 @@ export function MapPreview({
         if (!cancelled) setLoadingRoute(false);
       }
     }, 450);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
+    return () => { cancelled = true; clearTimeout(t); };
   }, [origin.lat, origin.lng, listingLat, listingLng]);
 
-  async function openDirections() {
-    const url =
-      `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=` +
-      `${origin.lat}%2C${origin.lng}%3B${listingLat}%2C${listingLng}`;
-    await Linking.openURL(url);
+  const displayOrigin = snappedOrigin ?? origin;
+  const displayDest   = snappedDest   ?? { lat: listingLat, lng: listingLng };
+
+  // ── Controls ───────────────────────────────────────────────────────────────
+
+  async function getCurrentDirection() {
+    setFollowUser(true);
+    try {
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Highest,
+      });
+      setDeviceLoc({ lat: current.coords.latitude, lng: current.coords.longitude });
+    } catch {
+      const fitted = regionForPoints(origin, { lat: listingLat, lng: listingLng });
+      regionRef.current = fitted;
+      mapRef.current?.animateToRegion(fitted, 280);
+    }
   }
 
-  function zoom(multiplier: number) {
-    const next = {
-      ...region,
-      latitudeDelta: Math.max(0.002, Math.min(0.6, region.latitudeDelta * multiplier)),
-      longitudeDelta: Math.max(0.002, Math.min(0.6, region.longitudeDelta * multiplier)),
-    };
-    setRegion(next);
-    mapRef.current?.animateToRegion(next, 200);
+  // ROTATION FIX: Use animateCamera (which carries heading) instead of
+  // animateToRegion (which always resets heading to 0). We read the current
+  // camera first, change only the zoom level, and leave heading/pitch intact.
+  function zoom(zoomIn: boolean) {
+    mapRef.current?.getCamera().then((cam) => {
+      if (!cam) return;
+      mapRef.current?.animateCamera(
+        { ...cam, zoom: Math.max(1, (cam.zoom ?? 14) + (zoomIn ? 1 : -1)) },
+        { duration: 200 },
+      );
+    });
   }
 
+  // Recenter: intentionally resets heading/pitch back to north-up
   function recenter() {
     setFollowUser(true);
     const fitted = regionForPoints(origin, { lat: listingLat, lng: listingLng });
-    setRegion(fitted);
-    mapRef.current?.animateToRegion(fitted, 280);
+    regionRef.current = fitted;
+    mapRef.current?.animateCamera(
+      {
+        center: { latitude: fitted.latitude, longitude: fitted.longitude },
+        heading: 0,
+        pitch: 0,
+        zoom: Math.round(Math.log2(360 / fitted.longitudeDelta)),
+      },
+      { duration: 300 },
+    );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <View style={styles.mapWrap}>
@@ -195,19 +231,21 @@ export function MapPreview({
           ref={mapRef}
           style={styles.map}
           provider={PROVIDER_DEFAULT}
-          initialRegion={region}
-          region={region}
-          onRegionChangeComplete={(r) => setRegion(r)}
+          // Use initialRegion ONLY — never bind `region` as a controlled prop.
+          // The controlled region prop resets heading to 0 on every re-render,
+          // which caused the rotation snap-back.
+          initialRegion={regionRef.current}
+          onRegionChangeComplete={(r) => { regionRef.current = r; }}
           onTouchStart={() => setFollowUser(false)}
-          showsUserLocation
+          showsUserLocation={false}
           showsMyLocationButton={false}
-          showsCompass={false}
+          showsCompass
           toolbarEnabled={false}
           mapType="standard"
           scrollEnabled
           zoomEnabled
-          rotateEnabled={false}
-          pitchEnabled={false}
+          rotateEnabled
+          pitchEnabled
         >
           <UrlTile
             urlTemplate="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
@@ -222,28 +260,47 @@ export function MapPreview({
               coordinates={routeCoords}
               strokeColor={Colors.primary}
               strokeWidth={4}
-              lineDashPattern={[8, 5]}
+              lineCap="round"
+              lineJoin="round"
             />
           )}
 
-          <Marker coordinate={{ latitude: origin.lat, longitude: origin.lng }}>
-            <View style={styles.userDotOuter}>
-              <View style={styles.userDotInner} />
+          {/*
+            ICON FIX: tracksViewChanges must stay TRUE permanently.
+            Setting it to false freezes the native snapshot of the marker view,
+            and on Android that snapshot is often taken before the JS font/icon
+            has loaded — resulting in a blank circle. Keeping it true means
+            the native layer always mirrors the live JS view, so the Feather
+            icon is always visible. Two markers = negligible perf cost.
+          */}
+          <Marker
+            coordinate={{ latitude: displayOrigin.lat, longitude: displayOrigin.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={20}
+            tracksViewChanges
+          >
+            <View style={styles.userMarker}>
+              <Feather name="navigation" size={12} color={Colors.white} />
             </View>
           </Marker>
 
-          <Marker coordinate={{ latitude: listingLat, longitude: listingLng }}>
+          <Marker
+            coordinate={{ latitude: displayDest.lat, longitude: displayDest.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={18}
+            tracksViewChanges
+          >
             <View style={styles.listingPin}>
-              <AppText style={styles.listingEmoji}>{listingEmoji}</AppText>
+              <Feather name="map-pin" size={14} color={Colors.white} />
             </View>
           </Marker>
         </MapView>
 
         <View style={styles.zoomStack}>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => zoom(0.7)} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => zoom(true)} activeOpacity={0.8}>
             <Feather name="plus" size={16} color={Colors.ink} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => zoom(1.45)} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => zoom(false)} activeOpacity={0.8}>
             <Feather name="minus" size={16} color={Colors.ink} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtn} onPress={recenter} activeOpacity={0.8}>
@@ -253,10 +310,10 @@ export function MapPreview({
       </View>
 
       <View style={styles.infoBar}>
-        <TouchableOpacity style={styles.infoItem} activeOpacity={0.75} onPress={openDirections}>
+        <TouchableOpacity style={styles.infoItem} activeOpacity={0.75} onPress={getCurrentDirection}>
           <Feather name="navigation" size={12} color={Colors.primary} />
           <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginLeft: 4 }}>
-            Get directions
+            Get Current Direction
           </AppText>
         </TouchableOpacity>
         <View style={styles.divider} />
@@ -272,9 +329,7 @@ export function MapPreview({
         <View style={styles.metricChip}>
           <Feather name="activity" size={11} color={Colors.primary} />
           <AppText variant="caption" weight="bold" color={Colors.primary} style={{ marginLeft: 4 }}>
-            {loadingRoute
-              ? 'Routing...'
-              : `${(routeKm ?? directKm).toFixed(2)} km route`}
+            {loadingRoute ? 'Routing...' : `${(routeKm ?? directKm).toFixed(2)} km route`}
           </AppText>
         </View>
         <View style={styles.metricChip}>
@@ -284,13 +339,11 @@ export function MapPreview({
           </AppText>
         </View>
       </View>
-
-      <AppText style={styles.osmAttribution}>
-        Map data (c) OpenStreetMap contributors
-      </AppText>
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -323,31 +376,28 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Shadow.sm,
   },
-  userDotOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: `${Colors.primary}55`,
+  userMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  userDotInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
+    borderWidth: 2,
+    borderColor: Colors.white,
+    ...Shadow.sm,
   },
   listingPin: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.white,
+    ...Shadow.sm,
   },
-  listingEmoji: { fontSize: 12, lineHeight: 14 },
   infoBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -384,11 +434,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     paddingVertical: 5,
     paddingHorizontal: 8,
-  },
-  osmAttribution: {
-    fontSize: 10,
-    color: Colors.subtle,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
   },
 });

@@ -693,9 +693,9 @@ export function LocationPicker({ value, onChange }: Props) {
             </View>
 
             {/* OSM attribution — required by OSM usage policy */}
-            <AppText style={s.osmAttribution}>
+            {/* <AppText style={s.osmAttribution}>
                 Map data © OpenStreetMap contributors
-            </AppText>
+            </AppText> */}
 
         </View>
     );
