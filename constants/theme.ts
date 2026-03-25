@@ -1,5 +1,5 @@
 export const Colors = {
-  primary:      '#FF6B35',
+  primary:      '#2c3e50',
   primaryLight: '#FFF0EB',
   primaryDark:  '#E05520',
 
@@ -14,7 +14,7 @@ export const Colors = {
   bg:           '#F7F5F2',
   bgCard:       '#FDFCFB',
 
-  ink:          '#1A1A1A',
+  ink:          '#2c3e50',
   muted:        '#666666',
   subtle:       '#999999',
   placeholder:  '#BBBBBB',
