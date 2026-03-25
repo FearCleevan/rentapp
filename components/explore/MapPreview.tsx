@@ -216,7 +216,7 @@ export function MapPreview({
   // animateToRegion (which always resets heading to 0). We read the current
   // camera first, change only the zoom level, and leave heading/pitch intact.
   function zoom(zoomIn: boolean) {
-    mapRef.current?.getCamera().then((cam) => {
+    mapRef.current?.getCamera().then((cam: any) => {
       if (!cam) return;
       mapRef.current?.animateCamera(
         { ...cam, zoom: Math.max(1, (cam.zoom ?? 14) + (zoomIn ? 1 : -1)) },
@@ -242,6 +242,17 @@ export function MapPreview({
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (!MAPS_AVAILABLE) {
+    return (
+      <View style={[styles.container, styles.fallbackWrap]}>
+        <Feather name="map" size={16} color={Colors.subtle} />
+        <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 8, flex: 1 }}>
+          Map preview unavailable in this build.
+        </AppText>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.mapWrap}>
@@ -253,7 +264,7 @@ export function MapPreview({
           // The controlled region prop resets heading to 0 on every re-render,
           // which caused the rotation snap-back.
           initialRegion={regionRef.current}
-          onRegionChangeComplete={(r) => { regionRef.current = r; }}
+          onRegionChangeComplete={(r: any) => { regionRef.current = r; }}
           onTouchStart={() => setFollowUser(false)}
           showsUserLocation={false}
           showsMyLocationButton={false}
@@ -371,6 +382,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.white,
     ...Shadow.sm,
+  },
+  fallbackWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
   },
   mapWrap: {
     height: 290,

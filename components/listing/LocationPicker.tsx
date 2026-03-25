@@ -19,9 +19,6 @@ import {
     View, StyleSheet, TouchableOpacity, TextInput,
     Alert, Dimensions, Platform, ScrollView,
 } from 'react-native';
-import MapView, {
-    Marker, UrlTile, Region, PROVIDER_DEFAULT,
-} from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -29,6 +26,26 @@ import { AppText } from '@/components/ui/AppText';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
 import * as Location from 'expo-location';
+
+type Region = {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+};
+
+let Maps: any = null;
+try {
+    Maps = require('react-native-maps');
+} catch {
+    Maps = null;
+}
+
+const MapView = Maps?.default ?? null;
+const Marker = Maps?.Marker ?? null;
+const UrlTile = Maps?.UrlTile ?? null;
+const PROVIDER_DEFAULT = Maps?.PROVIDER_DEFAULT;
+const MAPS_AVAILABLE = !!MapView;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -163,7 +180,7 @@ interface Props {
 }
 
 export function LocationPicker({ value, onChange }: Props) {
-    const mapRef = useRef<MapView>(null);
+    const mapRef = useRef<any>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastQuery = useRef('');
 
@@ -485,75 +502,83 @@ export function LocationPicker({ value, onChange }: Props) {
             </TouchableOpacity>
 
             {/* ── Map ── */}
-            <View style={s.mapContainer}>
-                <MapView
-                    ref={mapRef}
-                    style={s.map}
-                    provider={PROVIDER_DEFAULT}
-                    initialRegion={{
-                        latitude: pin.latitude,
-                        longitude: pin.longitude,
-                        latitudeDelta: 0.04,
-                        longitudeDelta: 0.04,
-                    }}
-                    onPress={onMapPress}
-                    onTouchStart={dismissSuggestions}
-                    showsUserLocation
-                    showsMyLocationButton={false}
-                    showsCompass={false}
-                    showsTraffic={false}
-                    toolbarEnabled={false}
-                    mapType="standard"
-                >
-                    {/* OpenStreetMap tile overlay */}
-                    <UrlTile
-                        urlTemplate="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-                        maximumZ={19}
-                        flipY={false}
-                        tileSize={256}
-                        shouldReplaceMapContent
-                    />
-
-                    {/* Draggable pin */}
-                    <Marker
-                        coordinate={pin}
-                        draggable
-                        onDragEnd={onMarkerDragEnd}
-                        anchor={{ x: 0.5, y: 1 }}
+            {MAPS_AVAILABLE ? (
+                <View style={s.mapContainer}>
+                    <MapView
+                        ref={mapRef}
+                        style={s.map}
+                        provider={PROVIDER_DEFAULT}
+                        initialRegion={{
+                            latitude: pin.latitude,
+                            longitude: pin.longitude,
+                            latitudeDelta: 0.04,
+                            longitudeDelta: 0.04,
+                        }}
+                        onPress={onMapPress}
+                        onTouchStart={dismissSuggestions}
+                        showsUserLocation
+                        showsMyLocationButton={false}
+                        showsCompass={false}
+                        showsTraffic={false}
+                        toolbarEnabled={false}
+                        mapType="standard"
                     >
-                        <View style={s.pinWrap}>
-                            <View style={s.pinCircle}>
-                                <Feather name="map-pin" size={18} color={Colors.white} />
+                        {/* OpenStreetMap tile overlay */}
+                        <UrlTile
+                            urlTemplate="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+                            maximumZ={19}
+                            flipY={false}
+                            tileSize={256}
+                            shouldReplaceMapContent
+                        />
+
+                        {/* Draggable pin */}
+                        <Marker
+                            coordinate={pin}
+                            draggable
+                            onDragEnd={onMarkerDragEnd}
+                            anchor={{ x: 0.5, y: 1 }}
+                        >
+                            <View style={s.pinWrap}>
+                                <View style={s.pinCircle}>
+                                    <Feather name="map-pin" size={18} color={Colors.white} />
+                                </View>
+                                <View style={s.pinTip} />
                             </View>
-                            <View style={s.pinTip} />
-                        </View>
-                    </Marker>
-                </MapView>
+                        </Marker>
+                    </MapView>
 
-                {/* Save pin overlay button */}
-                <TouchableOpacity
-                    style={s.savePinOverlay}
-                    onPress={onSavePin}
-                    activeOpacity={0.85}
-                >
-                    <Feather name="bookmark" size={13} color={Colors.primary} />
-                    <AppText
-                        variant="caption"
-                        weight="bold"
-                        color={Colors.primary}
-                        style={{ marginLeft: 5 }}
+                    {/* Save pin overlay button */}
+                    <TouchableOpacity
+                        style={s.savePinOverlay}
+                        onPress={onSavePin}
+                        activeOpacity={0.85}
                     >
-                        Save pin
-                    </AppText>
-                </TouchableOpacity>
+                        <Feather name="bookmark" size={13} color={Colors.primary} />
+                        <AppText
+                            variant="caption"
+                            weight="bold"
+                            color={Colors.primary}
+                            style={{ marginLeft: 5 }}
+                        >
+                            Save pin
+                        </AppText>
+                    </TouchableOpacity>
 
-                {/* Bottom hint */}
-                <View style={s.mapHintBadge}>
-                    <Feather name="move" size={10} color={Colors.white} />
-                    <AppText style={s.mapHintText}>Tap map or drag pin</AppText>
+                    {/* Bottom hint */}
+                    <View style={s.mapHintBadge}>
+                        <Feather name="move" size={10} color={Colors.white} />
+                        <AppText style={s.mapHintText}>Tap map or drag pin</AppText>
+                    </View>
                 </View>
-            </View>
-
+            ) : (
+                <View style={s.mapUnavailable}>
+                    <Feather name="alert-circle" size={15} color={Colors.subtle} />
+                    <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 8, flex: 1 }}>
+                        Map unavailable in this build. Use search or current location.
+                    </AppText>
+                </View>
+            )}
             {/* ── Selected address display ── */}
             {value.address ? (
                 <View style={s.addressCard}>
@@ -772,10 +797,19 @@ const s = StyleSheet.create({
     mapContainer: {
         width: '100%',
         height: MAP_H,
-        marginHorizontal: 0, // FULL BLEED 🔥
+        marginHorizontal: 0,
         borderRadius: 8,
         overflow: 'hidden',
         position: 'relative',
+    },
+    mapUnavailable: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.bg,
+        borderRadius: Radius.md,
+        padding: Spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     map: { width: '100%', height: MAP_H },
 
@@ -937,3 +971,5 @@ const s = StyleSheet.create({
         marginTop: -6,
     },
 });
+
+
