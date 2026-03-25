@@ -1,0 +1,81 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.4.2
+2 info using node@v22.17.0
+3 silly config load:file:C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\FearCleevan\Desktop\Projects\rentapp\.npmrc
+5 silly config load:file:C:\Users\FearCleevan\.npmrc
+6 silly config load:file:C:\Users\FearCleevan\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm ci
+8 verbose argv "ci" "--include" "dev" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-25T22_18_40_715Z-
+10 verbose logfile C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-25T22_18_40_715Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest react@^19.2.4
+15 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+16 http cache https://registry.npmjs.org/react 24ms (cache hit)
+17 silly packumentCache full:https://registry.npmjs.org/react set size:6565280 disposed:false
+18 verbose stack Error: could not resolve
+18 verbose stack     at PlaceDep.failPeerConflict (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\place-dep.js:503:25)
+18 verbose stack     at new PlaceDep (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\place-dep.js:157:21)
+18 verbose stack     at #buildDepStep (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:931:18)
+18 verbose stack     at async Arborist.buildIdealTree (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:182:7)
+18 verbose stack     at async CI.exec (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\commands\ci.js:63:5)
+18 verbose stack     at async Npm.exec (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\npm.js:208:9)
+18 verbose stack     at async module.exports (C:\Users\FearCleevan\AppData\Roaming\npm\node_modules\npm\lib\cli\entry.js:67:5)
+19 error code ERESOLVE
+20 error ERESOLVE could not resolve
+21 error
+22 error While resolving: react-dom@19.2.4
+22 error Found: react@19.1.0
+22 error node_modules/react
+22 error   react@"19.1.0" from the root project
+22 error   peer react@">=16.3.0" from @callstack/react-theme-provider@3.0.9
+22 error   node_modules/@callstack/react-theme-provider
+22 error     @callstack/react-theme-provider@"^3.0.9" from react-native-paper@5.15.0
+22 error     node_modules/react-native-paper
+22 error       react-native-paper@"^5.12.0" from the root project
+22 error   70 more (@expo/devtools, @expo/vector-icons, ...)
+22 error
+22 error Could not resolve dependency:
+22 error peer react@"^19.2.4" from react-dom@19.2.4
+22 error node_modules/react-dom
+22 error   peerOptional react-dom@"*" from expo-router@6.0.23
+22 error   node_modules/expo-router
+22 error     expo-router@"~6.0.23" from the root project
+22 error     1 more (@expo/cli)
+22 error   peerOptional react-dom@"*" from @expo/metro-runtime@6.1.2
+22 error   node_modules/expo-router/node_modules/@expo/metro-runtime
+22 error     @expo/metro-runtime@"^6.1.2" from expo-router@6.0.23
+22 error   13 more (@radix-ui/react-collection, ...)
+22 error
+22 error Conflicting peer dependency: react@19.2.4
+22 error node_modules/react
+22 error   peer react@"^19.2.4" from react-dom@19.2.4
+22 error   node_modules/react-dom
+22 error     peerOptional react-dom@"*" from expo-router@6.0.23
+22 error     node_modules/expo-router
+22 error       expo-router@"~6.0.23" from the root project
+22 error       1 more (@expo/cli)
+22 error     peerOptional react-dom@"*" from @expo/metro-runtime@6.1.2
+22 error     node_modules/expo-router/node_modules/@expo/metro-runtime
+22 error       @expo/metro-runtime@"^6.1.2" from expo-router@6.0.23
+22 error     13 more (@radix-ui/react-collection, ...)
+22 error
+22 error Fix the upstream dependency conflict, or retry
+22 error this command with --force or --legacy-peer-deps
+22 error to accept an incorrect (and potentially broken) dependency resolution.
+23 error
+23 error
+23 error For a full report see:
+23 error C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-25T22_18_40_715Z-eresolve-report.txt
+24 silly unfinished npm timer idealTree:buildDeps 1774477121405
+25 silly unfinished npm timer idealTree:node_modules/react-dom 1774477121406
+26 verbose cwd C:\Users\FearCleevan\Desktop\Projects\rentapp
+27 verbose os Windows_NT 10.0.26200
+28 verbose node v22.17.0
+29 verbose npm  v11.4.2
+30 verbose exit 1
+31 verbose code 1
+32 error A complete log of this run can be found in: C:\Users\FearCleevan\Desktop\Projects\rentapp\.npm-cache\_logs\2026-03-25T22_18_40_715Z-debug-0.log
