@@ -19,14 +19,14 @@
 //     "expo-image-picker"
 //   ]
 
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Switch, Alert, KeyboardAvoidingView,
   Platform, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -40,7 +40,8 @@ import { LocationPicker } from '@/components/listing/LocationPicker';
 import { useAuthStore } from '@/store/authStore';
 import {
   DRAFT_DEFAULTS, AMENITY_PRESETS,
-  uploadListingPhoto, createListing, updateListingPhotos,
+  uploadListingPhoto, createListing, updateListing, updateListingPhotos,
+  fetchEditableListing, listingRowToDraft,
   type ListingDraft, type ListingCategory, type PriceUnit,
 } from '@/lib/listingCreateService';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
@@ -653,13 +654,16 @@ function StepReview({ draft }: { draft: ListingDraft }) {
 
 export default function CreateListingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ listingId?: string }>();
   const toast = useToast();
   const { user } = useAuthStore();
   const scrollRef = useRef<ScrollView>(null);
+  const listingId = typeof params.listingId === 'string' ? params.listingId : null;
 
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<ListingDraft>(DRAFT_DEFAULTS);
   const [saving, setSaving] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(!!listingId);
 
   const step = STEPS[stepIndex];
   const isFirst = stepIndex === 0;
@@ -691,7 +695,35 @@ export default function CreateListingScreen() {
     }
   }
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExistingListing() {
+      if (!listingId || !user?.id) {
+        setLoadingExisting(false);
+        return;
+      }
+
+      setLoadingExisting(true);
+      const { data, error } = await fetchEditableListing(user.id, listingId);
+      if (cancelled) return;
+
+      if (error || !data) {
+        toast.show(error?.message ?? 'Listing not found.', 'error');
+        router.replace('/(tabs)/host');
+        return;
+      }
+
+      setDraft(listingRowToDraft(data));
+      setLoadingExisting(false);
+    }
+
+    loadExistingListing();
+    return () => { cancelled = true; };
+  }, [listingId, user?.id, router, toast]);
+
   function goNext() {
+    if (saving || loadingExisting) return;
     if (!canProceed()) { toast.show(validationMsg(), 'error'); return; }
     if (isLast) { handlePublish(); return; }
     setStepIndex(i => i + 1);
@@ -707,32 +739,40 @@ export default function CreateListingScreen() {
   function skip() { setStepIndex(i => i + 1); scrollTop(); }
 
   async function handlePublish() {
-    if (!user?.id) return;
+    if (!user?.id || saving || loadingExisting) return;
     setSaving(true);
     try {
-      const { data: listing, error: ce } = await createListing(user.id, draft, 'draft');
+      const { data: listing, error: ce } = listingId
+        ? await updateListing(listingId, user.id, draft, 'draft')
+        : await createListing(user.id, draft, 'draft');
       if (ce || !listing) {
-        toast.show(ce?.message ?? 'Failed to create listing.', 'error');
+        toast.show(ce?.message ?? 'Failed to save listing.', 'error');
         return;
       }
 
       if (draft.photos.length > 0) {
-        toast.show('Uploading photos…', 'info');
-        const uploads = await Promise.all(
-          draft.photos.map((uri, i) => uploadListingPhoto(user.id, uri, i, listing.id))
-        );
-        const urls = uploads.filter(r => r.url).map(r => r.url!);
-        const failed = uploads.filter(r => r.error);
+        const existingUrls = draft.photos.filter((uri) => uri.startsWith('http://') || uri.startsWith('https://'));
+        const localUris = draft.photos.filter((uri) => !uri.startsWith('http://') && !uri.startsWith('https://'));
+        let uploadedUrls: string[] = [];
 
-        if (failed.length > 0) {
-          const msg = failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.';
-          toast.show(msg, 'error');
-          throw new Error(msg);
+        if (localUris.length > 0) {
+          toast.show('Uploading photos...', 'info');
+          const uploads = await Promise.all(
+            localUris.map((uri, i) => uploadListingPhoto(user.id, uri, i, listing.id))
+          );
+          const failed = uploads.filter((r) => r.error);
+
+          if (failed.length > 0) {
+            const msg = failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.';
+            toast.show(msg, 'error');
+            throw new Error(msg);
+          }
+
+          uploadedUrls = uploads.filter((r) => r.url).map((r) => r.url!);
         }
 
-        if (urls.length === 0) {
-          throw new Error('No photos were uploaded.');
-        }
+        const urls = [...existingUrls, ...uploadedUrls];
+        if (urls.length === 0) throw new Error('No photos were uploaded.');
 
         const { error: pe } = await updateListingPhotos(listing.id, urls);
         if (pe) {
@@ -740,11 +780,10 @@ export default function CreateListingScreen() {
           throw new Error(pe?.message ?? 'Failed to save image URLs to listing.');
         }
       }
-
       const { setListingStatus } = await import('@/lib/listingsService');
       const { error: ae } = await setListingStatus(listing.id, 'active');
 
-      toast.show(ae ? 'Created — activate it from the Host tab.' : 'Listing published! 🎉',
+      toast.show(ae ? 'Saved. Activate it from Host tab.' : 'Listing published!',
         ae ? 'info' : 'success');
 
       router.replace('/(tabs)/host');
@@ -756,12 +795,14 @@ export default function CreateListingScreen() {
   }
 
   async function handleSaveDraft() {
-    if (!user?.id || !draft.category || !draft.title.trim()) {
+    if (!user?.id || saving || loadingExisting || !draft.category || !draft.title.trim()) {
       Alert.alert('Cannot save draft', 'Please select a category and enter a title first.');
       return;
     }
     setSaving(true);
-    const { error } = await createListing(user.id, draft, 'draft');
+    const { error } = listingId
+      ? await updateListing(listingId, user.id, draft, 'draft')
+      : await createListing(user.id, draft, 'draft');
     setSaving(false);
     if (error) { toast.show('Failed to save draft.', 'error'); return; }
     toast.show('Draft saved.', 'success');
@@ -781,13 +822,15 @@ export default function CreateListingScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <AppText variant="caption" weight="bold" color={Colors.muted}>
-            Step {stepIndex + 1} of {STEPS.length}
+            {loadingExisting ? 'Loading listing...' : `Step ${stepIndex + 1} of ${STEPS.length}`}
           </AppText>
-          <AppText variant="label" weight="extrabold">{step.title}</AppText>
+          <AppText variant="label" weight="extrabold">
+            {listingId ? `Edit listing - ${step.title}` : step.title}
+          </AppText>
         </View>
-        <TouchableOpacity style={styles.headerBtn} onPress={handleSaveDraft} disabled={saving}
+        <TouchableOpacity style={styles.headerBtn} onPress={handleSaveDraft} disabled={saving || loadingExisting}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <AppText variant="caption" weight="bold" color={saving ? Colors.subtle : Colors.muted}>
+          <AppText variant="caption" weight="bold" color={(saving || loadingExisting) ? Colors.subtle : Colors.muted}>
             Save
           </AppText>
         </TouchableOpacity>
@@ -836,9 +879,10 @@ export default function CreateListingScreen() {
       {/* Bottom bar */}
       <View style={styles.bottomBar}>
         <AppButton
-          label={saving ? 'Publishing…' : isLast ? 'Publish listing →' : isSkippable ? 'Continue →' : 'Next →'}
+          label={loadingExisting ? 'Loading...' : saving ? 'Saving...' : isLast ? 'Publish listing ->' : isSkippable ? 'Continue ->' : 'Next ->'}
           onPress={goNext}
           loading={saving}
+          disabled={loadingExisting || saving || (!canProceed() && !isLast)}
           style={(!canProceed() && !isLast) ? { opacity: 0.5 } : undefined}
         />
         {isSkippable && !isLast && (

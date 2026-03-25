@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
-  Switch, ActivityIndicator, RefreshControl,
+  Switch, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -222,10 +222,14 @@ function ListingRow({
   item,
   index,
   onToggle,
+  onOpen,
+  onDeleteDraft,
 }: {
   item:     any;
   index:    number;
   onToggle: (id: string, active: boolean) => void;
+  onOpen: (id: string) => void;
+  onDeleteDraft: (id: string) => void;
 }) {
   const [active, setActive] = useState(item.status === 'active');
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
@@ -239,7 +243,11 @@ function ListingRow({
   return (
     <View>
       {index > 0 && <View style={styles.listingDivider} />}
-      <TouchableOpacity style={styles.listingRow} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.listingRow}
+        activeOpacity={0.85}
+        onPress={() => onOpen(item.id)}
+      >
         {/* Icon thumb */}
         <View style={[styles.listingThumb, { backgroundColor: cfg.bg }]}>
           {item.cover_photo_url ? (
@@ -271,7 +279,26 @@ function ListingRow({
           </View>
         </View>
 
-        {item.status !== 'draft' && (
+        {item.status === 'draft' ? (
+          <View style={styles.draftActions}>
+            <TouchableOpacity
+              style={styles.draftBtn}
+              onPress={() => onOpen(item.id)}
+              activeOpacity={0.85}
+            >
+              <AppText variant="caption" weight="bold" color={Colors.primary}>
+                Continue
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.draftBtn, styles.draftDeleteBtn]}
+              onPress={() => onDeleteDraft(item.id)}
+              activeOpacity={0.85}
+            >
+              <Feather name="trash-2" size={13} color={Colors.error} />
+            </TouchableOpacity>
+          </View>
+        ) : (
           <Switch
             value={active}
             onValueChange={(v) => { setActive(v); onToggle(item.id, v); }}
@@ -313,6 +340,28 @@ function HostDashboard() {
   async function handleToggle(listingId: string, active: boolean) {
     await setListingStatus(listingId, active ? 'active' : 'paused');
     loadListings();
+  }
+
+  function handleOpenListing(listingId: string) {
+    router.push({ pathname: '/listings/create', params: { listingId } });
+  }
+
+  function handleDeleteDraft(listingId: string) {
+    Alert.alert(
+      'Delete draft?',
+      'This draft will be removed from your listings.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await setListingStatus(listingId, 'deleted');
+            loadListings();
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -430,6 +479,8 @@ function HostDashboard() {
                 item={item}
                 index={i}
                 onToggle={handleToggle}
+                onOpen={handleOpenListing}
+                onDeleteDraft={handleDeleteDraft}
               />
             ))}
           </View>
@@ -649,6 +700,24 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical:   Spacing.md,
+  },
+  draftActions: {
+    marginLeft: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  draftBtn: {
+    borderWidth: 1,
+    borderColor: Colors.primary + '44',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  draftDeleteBtn: {
+    borderColor: Colors.error + '44',
+    backgroundColor: Colors.error + '12',
   },
   listingThumb: {
     width:           52,

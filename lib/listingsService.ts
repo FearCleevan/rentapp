@@ -153,7 +153,7 @@ export async function fetchHostListings(hostId: string) {
   } catch (e: any) { return { data: [], error: { message: e?.message } }; }
 }
 
-export async function setListingStatus(listingId: string, status: 'active' | 'paused' | 'draft') {
+export async function setListingStatus(listingId: string, status: 'active' | 'paused' | 'draft' | 'deleted') {
   const { data, error } = await supabase.from('listings').update({ status }).eq('id', listingId).select('id,status').single();
   return { data, error };
 }

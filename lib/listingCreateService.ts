@@ -50,6 +50,29 @@ export interface ListingDraft {
   cancellation_policy: 'flexible' | 'moderate' | 'strict';
 }
 
+export interface EditableListingRow {
+  id: string;
+  host_id: string;
+  category: ListingCategory;
+  title: string;
+  description: string | null;
+  address: string;
+  city: string;
+  barangay: string | null;
+  lat: number;
+  lng: number;
+  price: number;
+  price_unit: PriceUnit;
+  deposit: number;
+  instant_book: boolean;
+  amenities: string[] | null;
+  photos: string[] | null;
+  cover_photo_url: string | null;
+  house_rules: string | null;
+  cancellation_policy: 'flexible' | 'moderate' | 'strict' | string;
+  status: 'draft' | 'active' | 'paused' | 'deleted';
+}
+
 export const DRAFT_DEFAULTS: ListingDraft = {
   category:            null,
   title:               '',
@@ -186,6 +209,85 @@ export async function createListing(
     .single();
 
   return { data, error };
+}
+
+export async function updateListing(
+  listingId: string,
+  hostId: string,
+  draft: ListingDraft,
+  status?: 'draft' | 'active' | 'paused',
+) {
+  if (!draft.category) return { data: null, error: { message: 'Category is required' } };
+
+  const price   = parseFloat(draft.price)   || 0;
+  const deposit = parseFloat(draft.deposit) || 0;
+
+  const payload: Record<string, any> = {
+    category:            draft.category,
+    title:               draft.title.trim(),
+    description:         draft.description.trim() || null,
+    address:             draft.address.trim(),
+    city:                draft.city.trim() || 'Davao City',
+    barangay:            draft.barangay.trim() || null,
+    lat:                 draft.lat,
+    lng:                 draft.lng,
+    price,
+    price_unit:          draft.price_unit,
+    deposit,
+    instant_book:        draft.instant_book,
+    amenities:           draft.amenities,
+    house_rules:         draft.house_rules.trim() || null,
+    cancellation_policy: draft.cancellation_policy,
+  };
+
+  if (status) payload.status = status;
+
+  const { data, error } = await supabase
+    .from('listings')
+    .update(payload)
+    .eq('id', listingId)
+    .eq('host_id', hostId)
+    .select('id')
+    .single();
+
+  return { data, error };
+}
+
+export function listingRowToDraft(row: EditableListingRow): ListingDraft {
+  return {
+    category: row.category,
+    title: row.title ?? '',
+    description: row.description ?? '',
+    address: row.address ?? '',
+    city: row.city ?? 'Davao City',
+    barangay: row.barangay ?? '',
+    lat: row.lat ?? DRAFT_DEFAULTS.lat,
+    lng: row.lng ?? DRAFT_DEFAULTS.lng,
+    price: String(row.price ?? 0),
+    price_unit: row.price_unit ?? 'day',
+    deposit: String(row.deposit ?? 0),
+    instant_book: !!row.instant_book,
+    amenities: row.amenities ?? [],
+    photos: row.photos ?? [],
+    cover_photo_url: row.cover_photo_url ?? null,
+    house_rules: row.house_rules ?? '',
+    cancellation_policy:
+      row.cancellation_policy === 'moderate' || row.cancellation_policy === 'strict'
+        ? row.cancellation_policy
+        : 'flexible',
+  };
+}
+
+export async function fetchEditableListing(hostId: string, listingId: string) {
+  const { data, error } = await supabase
+    .from('listings')
+    .select('id,host_id,category,title,description,address,city,barangay,lat,lng,price,price_unit,deposit,instant_book,amenities,photos,cover_photo_url,house_rules,cancellation_policy,status')
+    .eq('id', listingId)
+    .eq('host_id', hostId)
+    .neq('status', 'deleted')
+    .single();
+
+  return { data: data as EditableListingRow | null, error };
 }
 
 // ─── Update listing photos after upload ──────────────────────────────────────

@@ -1,5 +1,5 @@
 // app/hosts/all.tsx
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -113,7 +113,7 @@ export default function AllHostsScreen() {
           <HostCard
             key={host.id}
             host={host}
-            onPress={() => router.push(`/hosts/${host.id}`)}
+            onPress={() => Alert.alert('Coming soon', 'Host profile page is not available yet.')}
           />
         ))}
       </ScrollView>
