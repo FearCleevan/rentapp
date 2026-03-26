@@ -26,10 +26,13 @@
       "package": "com.anonymous.rentapp",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDummyKeyForReactNativeMaps"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
