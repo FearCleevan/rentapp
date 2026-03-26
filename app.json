@@ -26,6 +26,8 @@
       "package": "com.anonymous.rentapp",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -45,6 +47,12 @@
         "projectId": "09d31157-28c1-419a-9572-f95b727aeb84"
       }
     },
-    "owner": "fearcleevans-organization"
+    "owner": "fearcleevans-organization",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/09d31157-28c1-419a-9572-f95b727aeb84"
+    }
   }
 }
