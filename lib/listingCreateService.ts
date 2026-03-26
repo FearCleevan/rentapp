@@ -119,20 +119,27 @@ export async function uploadListingPhoto(
     const rawExt = cleanUri.split('.').pop()?.toLowerCase() ?? 'jpg';
     const ext = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(rawExt) ? rawExt : 'jpg';
     const response = await fetch(sourceUri);
-    const blob     = await response.blob();
-    const contentType = ext === 'jpg'
+    if (!response.ok) {
+      return {
+        url: null,
+        error: { message: `Unable to read selected photo (${response.status})` },
+      };
+    }
+
+    const fileBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || (ext === 'jpg'
       ? 'image/jpeg'
       : ext === 'heic'
         ? 'image/heic'
         : ext === 'heif'
           ? 'image/heif'
-          : `image/${ext}`;
+          : `image/${ext}`);
     const scope = listingId ? `${hostId}/${listingId}` : hostId;
     const filePath = `${scope}/${Date.now()}_${index}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('listing-photos')
-      .upload(filePath, blob, {
+      .upload(filePath, fileBuffer, {
         upsert:      false,
         contentType,
       });

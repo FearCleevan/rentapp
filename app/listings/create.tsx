@@ -386,7 +386,7 @@ function StepPhotos({ draft, update }: {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: remaining,
       quality: 0.85,
@@ -781,6 +781,7 @@ export default function CreateListingScreen() {
         const existingUrls = draft.photos.filter((uri) => uri.startsWith('http://') || uri.startsWith('https://'));
         const localUris = draft.photos.filter((uri) => !uri.startsWith('http://') && !uri.startsWith('https://'));
         let uploadedUrls: string[] = [];
+        let failedUploads = 0;
 
         if (localUris.length > 0) {
           toast.show('Uploading photos...', 'info');
@@ -788,23 +789,28 @@ export default function CreateListingScreen() {
             localUris.map((uri, i) => uploadListingPhoto(user.id, uri, i, targetListingId))
           );
           const failed = uploads.filter((r) => r.error);
-
-          if (failed.length > 0) {
-            const msg = failed[0]?.error?.message ?? 'Photo upload failed. Check storage bucket policy.';
-            toast.show(msg, 'error');
-            throw new Error(msg);
+          failedUploads = failed.length;
+          if (failedUploads > 0) {
+            console.error('Some listing photo uploads failed:', failed.map((f) => f.error));
           }
 
           uploadedUrls = uploads.filter((r) => r.url).map((r) => r.url!);
         }
 
         const urls = [...existingUrls, ...uploadedUrls];
-        if (urls.length === 0) throw new Error('No photos were uploaded.');
+        if (urls.length > 0) {
+          const { error: pe } = await updateListingPhotos(targetListingId, urls);
+          if (pe) {
+            toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
+            throw new Error(pe?.message ?? 'Failed to save image URLs to listing.');
+          }
+        }
 
-        const { error: pe } = await updateListingPhotos(targetListingId, urls);
-        if (pe) {
-          toast.show(pe?.message ?? 'Failed to save image URLs to listing.', 'error');
-          throw new Error(pe?.message ?? 'Failed to save image URLs to listing.');
+        if (failedUploads > 0) {
+          toast.show(
+            `${failedUploads} photo${failedUploads > 1 ? 's' : ''} failed to upload. Listing was still saved.`,
+            'info'
+          );
         }
       }
       const { setListingStatus } = await import('@/lib/listingsService');

@@ -8,14 +8,7 @@ export function useSession() {
   const { session, profile, isLoading, setSession, setProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        hydrate(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    initializeSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
@@ -31,6 +24,34 @@ export function useSession() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  async function initializeSession() {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+
+      setSession(data.session);
+      if (data.session?.user) {
+        await hydrate(data.session.user.id);
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      const isInvalidRefreshToken =
+        error instanceof Error &&
+        error.message.toLowerCase().includes('invalid refresh token');
+
+      if (isInvalidRefreshToken) {
+        // Stale token in local storage: clear it without network dependency.
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+
+      console.error('Session restore failed:', error);
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+    }
+  }
 
   async function hydrate(userId: string) {
     setLoading(true);
