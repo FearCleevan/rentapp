@@ -9,16 +9,16 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
-import { AppText }            from '@/components/ui/AppText';
+import { AppText } from '@/components/ui/AppText';
 import { CategoryIcon, CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
-import { ExploreHeader }      from '@/components/explore/ExploreHeader';
-import { BannerCarousel }     from '@/components/explore/BannerCarousel';
+import { ExploreHeader } from '@/components/explore/ExploreHeader';
+import { BannerCarousel } from '@/components/explore/BannerCarousel';
 import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
-import { RadiusFilterSheet }  from '@/components/explore/RadiusFilterSheet';
+import { RadiusFilterSheet } from '@/components/explore/RadiusFilterSheet';
 
 import { useListings, useDiscoverSections } from '@/hooks/useListings';
-import { type ListingRow }    from '@/lib/listingsService';
-import { type Category }      from '@/components/explore/exploreData';
+import { type ListingRow } from '@/lib/listingsService';
+import { type Category } from '@/components/explore/exploreData';
 import { Colors, Spacing, Radius } from '@/constants/theme';
 
 // ─── Listing card ─────────────────────────────────────────────────────────────
@@ -26,9 +26,9 @@ import { Colors, Spacing, Radius } from '@/constants/theme';
 function RealListingCard({
   item, saved, onSave, onPress,
 }: {
-  item:    ListingRow;
-  saved:   boolean;
-  onSave:  () => void;
+  item: ListingRow;
+  saved: boolean;
+  onSave: () => void;
   onPress: () => void;
 }) {
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
@@ -36,68 +36,47 @@ function RealListingCard({
 
   return (
     <TouchableOpacity style={lc.card} onPress={onPress} activeOpacity={0.9}>
-      {/* Image / icon area */}
-      <View style={[lc.imgArea, { backgroundColor: cfg.bg }]}>
+      {/* Image */}
+      <View style={lc.imgArea}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={lc.photo} contentFit="cover" />
         ) : (
-          <Feather name={cfg.icon} size={44} color={cfg.color} />
+          <View style={lc.placeholder} />
         )}
 
-        {item.instant_book && (
-          <View style={lc.instantBadge}>
-            <Feather name="zap" size={9} color={Colors.white} />
-            <AppText variant="caption" weight="bold" color={Colors.white} style={{ fontSize: 9, marginLeft: 2 }}>
-              Instant
-            </AppText>
-          </View>
-        )}
-
-        <TouchableOpacity style={lc.heartBtn} onPress={onSave} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Feather name="heart" size={14} color={saved ? '#FF4444' : 'rgba(255,255,255,0.9)'} />
+        {/* Heart */}
+        <TouchableOpacity style={lc.heartBtn} onPress={onSave}>
+          <Feather
+            name="heart"
+            size={14}
+            color={saved ? '#FF4D4F' : '#333'}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Body */}
       <View style={lc.body}>
-        <AppText variant="caption" weight="bold" color={cfg.color} style={lc.catLabel}>
-          {item.category.replace(/_/g, ' ').toUpperCase()}
-        </AppText>
-
-        <AppText variant="label" weight="bold" numberOfLines={2} style={lc.title}>
+        {/* Title */}
+        <AppText variant="label" weight="bold" numberOfLines={1} style={lc.title}>
           {item.title}
         </AppText>
 
-        <View style={lc.locationRow}>
-          <Feather name="map-pin" size={9} color={Colors.subtle} />
-          <AppText variant="caption" color={Colors.subtle} numberOfLines={1} style={{ marginLeft: 3, flex: 1 }}>
-            {item.city}
-            {(item as any)._distKm != null ? ` · ${((item as any)._distKm as number).toFixed(1)} km` : ''}
-          </AppText>
-        </View>
+        {/* Subtext (date + price) */}
+        <AppText variant="caption" color={Colors.subtle} style={lc.subText}>
+          8 days • from ₱{Number(item.price).toLocaleString()}/person
+        </AppText>
 
+        {/* Rating */}
         <View style={lc.ratingRow}>
-          <Feather name="star" size={10} color="#FFB800" />
-          <AppText variant="caption" weight="bold" style={{ marginLeft: 3 }}>
+          <Feather name="star" size={12} color="#FFB800" />
+          <AppText variant="caption" weight="bold" style={{ marginLeft: 4 }}>
             {item.avg_rating > 0 ? item.avg_rating.toFixed(1) : 'New'}
           </AppText>
           {item.review_count > 0 && (
-            <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 2 }}>
-              ({item.review_count})
+            <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 4 }}>
+              {item.review_count} reviews
             </AppText>
           )}
-          {item.host_is_verified && (
-            <View style={lc.verifiedDot}>
-              <Feather name="check" size={8} color={Colors.teal} />
-            </View>
-          )}
-        </View>
-
-        <View style={lc.priceRow}>
-          <AppText variant="label" weight="extrabold" color={Colors.ink}>
-            ₱{Number(item.price).toLocaleString()}
-          </AppText>
-          <AppText variant="caption" color={Colors.subtle}>/{item.price_unit}</AppText>
         </View>
       </View>
     </TouchableOpacity>
@@ -105,21 +84,70 @@ function RealListingCard({
 }
 
 const lc = StyleSheet.create({
-  card:      { backgroundColor: Colors.white, borderRadius: Radius.lg, overflow: 'hidden', flex: 1,
-               shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  imgArea:   { height: 130, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  photo: { width: '100%', height: '100%' },
-  instantBadge: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center',
-                  backgroundColor: Colors.teal, borderRadius: Radius.full, paddingVertical: 3, paddingHorizontal: 6 },
-  heartBtn:  { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14,
-               backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
-  body:      { padding: Spacing.sm },
-  catLabel:  { fontSize: 9, letterSpacing: 0.5, marginBottom: 2 },
-  title:     { lineHeight: 18, marginBottom: 4 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  verifiedDot: { marginLeft: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.tealLight, alignItems: 'center', justifyContent: 'center' },
-  priceRow:  { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    overflow: 'hidden',
+    flex: 1,
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  imgArea: {
+    height: 140,
+    position: 'relative',
+  },
+
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+
+  placeholder: {
+    flex: 1,
+    backgroundColor: '#eee',
+  },
+
+  // 👇 NEW STYLE (white floating heart)
+  heartBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  body: {
+    padding: 10,
+  },
+
+  title: {
+    fontSize: 13,
+    marginBottom: 2,
+  },
+
+  subText: {
+    fontSize: 11,
+    marginBottom: 6,
+  },
+
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -141,21 +169,21 @@ function mapUiCategoryToDb(category: Category) {
 export default function ExploreScreen() {
   const router = useRouter();
 
-  const [search,          setSearch]          = useState('');
-  const [category,        setCategory]        = useState<Category>('all');
-  const [radiusKm,        setRadiusKm]        = useState(5);
-  const [saved,           setSaved]           = useState<Set<string>>(new Set());
-  const [selectedId,      setSelectedId]      = useState<string | null>(null);
-  const [filterVisible,   setFilterVisible]   = useState(false);
-  const [pendingRadius,   setPendingRadius]   = useState(5);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<Category>('all');
+  const [radiusKm, setRadiusKm] = useState(5);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [pendingRadius, setPendingRadius] = useState(5);
   const [pendingCategory, setPendingCategory] = useState<Category>('all');
 
   const filters = useMemo(() => ({
-    category:  mapUiCategoryToDb(category) as any,
+    category: mapUiCategoryToDb(category) as any,
     search, radiusKm,
     userLat: USER_LAT,
     userLng: USER_LNG,
-    sortBy:  'distance' as const,
+    sortBy: 'distance' as const,
   }), [category, search, radiusKm]);
 
   const { listings, isLoading, isRefreshing, error, refresh } = useListings(filters);
@@ -168,7 +196,7 @@ export default function ExploreScreen() {
   }
 
   function applyFilter() { setRadiusKm(pendingRadius); setCategory(pendingCategory); setFilterVisible(false); }
-  function resetFilter()  { setPendingRadius(5); setPendingCategory('all'); setRadiusKm(5); setCategory('all'); setFilterVisible(false); }
+  function resetFilter() { setPendingRadius(5); setPendingCategory('all'); setRadiusKm(5); setCategory('all'); setFilterVisible(false); }
 
   const ListHeader = useCallback(() => (
     <View style={styles.headerWrap}>
@@ -240,7 +268,7 @@ export default function ExploreScreen() {
         search={search} category={category} radiusKm={radiusKm}
         onSearch={setSearch} onCategory={setCategory}
         onFilter={() => { setPendingRadius(radiusKm); setPendingCategory(category); setFilterVisible(true); }}
-        onNotif={() => {}}
+        onNotif={() => { }}
       />
 
       <FlatList
@@ -285,30 +313,30 @@ export default function ExploreScreen() {
       {selectedListing && (
         <ListingDetailSheet
           listing={{
-            id:          selectedListing.id,
-            category:    selectedListing.category as any,
-            title:       selectedListing.title,
-            location:    selectedListing.address,
-            distance:    (selectedListing as any)._distKm ?? 0,
-            lat:         selectedListing.lat,
-            lng:         selectedListing.lng,
-            price:       Number(selectedListing.price),
-            priceUnit:   selectedListing.price_unit,
-            rating:      selectedListing.avg_rating,
+            id: selectedListing.id,
+            category: selectedListing.category as any,
+            title: selectedListing.title,
+            location: selectedListing.address,
+            distance: (selectedListing as any)._distKm ?? 0,
+            lat: selectedListing.lat,
+            lng: selectedListing.lng,
+            price: Number(selectedListing.price),
+            priceUnit: selectedListing.price_unit,
+            rating: selectedListing.avg_rating,
             reviewCount: selectedListing.review_count,
-            isVerified:  selectedListing.host_is_verified,
+            isVerified: selectedListing.host_is_verified,
             instantBook: selectedListing.instant_book,
-            hostName:    selectedListing.host_name,
-            hostAvatar:  selectedListing.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
-            amenities:   selectedListing.amenities ?? [],
-            emoji:       '📦',
-            bgColor:     CATEGORY_CONFIG[selectedListing.category]?.bg ?? '#F0EDE6',
-            address:     selectedListing.address,
-            city:        selectedListing.city,
+            hostName: selectedListing.host_name,
+            hostAvatar: selectedListing.host_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+            amenities: selectedListing.amenities ?? [],
+            emoji: '📦',
+            bgColor: CATEGORY_CONFIG[selectedListing.category]?.bg ?? '#F0EDE6',
+            address: selectedListing.address,
+            city: selectedListing.city,
             coverPhotoUrl: selectedListing.cover_photo_url,
-            photos:      selectedListing.photos ?? [],
-            userLat:     USER_LAT,
-            userLng:     USER_LNG,
+            photos: selectedListing.photos ?? [],
+            userLat: USER_LAT,
+            userLng: USER_LNG,
             description: selectedListing.description ?? 'No description provided.',
           }}
           saved={saved.has(selectedListing.id)}
