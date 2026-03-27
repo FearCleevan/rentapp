@@ -1,4 +1,5 @@
-// components/explore/ListingDetailSheet.tsx
+// Updated ListingDetailSheet.tsx with improved image display
+
 import { useEffect, useState } from 'react';
 import {
   View, ScrollView, TouchableOpacity,
@@ -12,7 +13,7 @@ import { MapPreview } from './MapPreview';
 import type { Listing } from './exploreData';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
-const { height: SCREEN_H } = Dimensions.get('window');
+const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 
 const MOCK_REVIEWS = [
   { id:'r1', name:'Jessa R.', initials:'JR', color:'#534AB7', rating:5, date:'2 weeks ago',
@@ -94,6 +95,13 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
     if (listing) setImageIndex(0);
   }, [listing?.id]);
 
+  // Calculate dynamic image height based on screen width and image aspect ratio
+  // const getImageHeight = (imageUri: string) => {
+  //   // You can implement actual image dimension fetching if needed
+  //   // For now, using a responsive approach
+  //   return Math.min(SCREEN_W * 0.6, 350); // 60% of screen width, max 350
+  // };
+
   if (!listing) return null;
 
   const descPreview = listing.description.slice(0, 120);
@@ -129,7 +137,7 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
           {/* Handle */}
           <View style={s.handle} />
 
-          {/* THE SCROLLABLE AREA - this is what you scroll */}
+          {/* THE SCROLLABLE AREA */}
           <ScrollView
             style={s.scroll}
             contentContainerStyle={s.scrollContent}
@@ -141,7 +149,7 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
             keyboardShouldPersistTaps="handled"
           >
 
-            {/* Hero */}
+            {/* Hero with improved image handling */}
             <View style={[s.hero, { backgroundColor: listing.bgColor }]}>
               {images.length > 0 ? (
                 <ScrollView
@@ -154,18 +162,31 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                   }}
                 >
                   {images.map((uri) => (
-                    <Image key={uri} source={{ uri }} style={s.heroImage} contentFit="cover" />
+                    <Image 
+                      key={uri} 
+                      source={{ uri }} 
+                      style={[s.heroImage, { height: 450 }]} 
+                      contentFit="cover"
+                      transition={200}
+                    />
                   ))}
                 </ScrollView>
               ) : (
-                <AppText style={{ fontSize:80 }}>{listing.emoji}</AppText>
+                <View style={s.noImageContainer}>
+                  <AppText style={s.noImageEmoji}>{listing.emoji}</AppText>
+                </View>
               )}
+              
+              {/* Control buttons */}
               <TouchableOpacity style={s.closeBtn} onPress={onClose}>
                 <Feather name="x" size={18} color={Colors.ink} />
               </TouchableOpacity>
+              
               <TouchableOpacity style={s.saveBtn} onPress={onSave}>
                 <Feather name="heart" size={18} color={saved ? '#FF4444' : Colors.muted} />
               </TouchableOpacity>
+              
+              {/* Badges */}
               <View style={s.heroBadges}>
                 <View style={[s.heroBadge, { backgroundColor: listing.instantBook ? Colors.teal : 'rgba(0,0,0,0.6)' }]}>
                   {listing.instantBook && <Feather name="zap" size={11} color={Colors.white} />}
@@ -182,6 +203,8 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                 )}
               </View>
             </View>
+            
+            {/* Image dots */}
             {images.length > 1 && (
               <View style={s.imageDots}>
                 {images.map((uri, i) => (
@@ -292,12 +315,6 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
                 <Feather name="map-pin" size={13} color={Colors.subtle} />
                 <AppText variant="body" color={Colors.muted} style={{ marginLeft:6, flex:1 }}>{listing.location}</AppText>
               </View>
-              {/* <View style={{ flexDirection:'row', alignItems:'center', marginBottom:Spacing.md }}>
-                <Feather name="crosshair" size={13} color={Colors.primary} />
-                <AppText variant="caption" color={Colors.primary} style={{ marginLeft:6 }}>
-                  Tap "Get directions" below to navigate from your current location
-                </AppText>
-              </View> */}
               <MapPreview
                 listingLat={listing.lat}
                 listingLng={listing.lng}
@@ -384,7 +401,7 @@ export function ListingDetailSheet({ listing, saved, onSave, onClose, onBook }: 
             <View style={{ height:120 }} />
           </ScrollView>
 
-          {/* Booking bar - sits outside ScrollView so it stays fixed */}
+          {/* Booking bar - fixed at bottom */}
           <View style={s.bookingBar}>
             <View>
               <View style={{ flexDirection:'row', alignItems:'baseline' }}>
@@ -421,23 +438,41 @@ const s = StyleSheet.create({
   scroll:        { flex:1 },
   scrollContent: { flexGrow:1 },
 
-  hero: { height:220, alignItems:'center', justifyContent:'center', position:'relative' },
-  heroImage: { width: Dimensions.get('window').width, height: 220 },
+  hero: { 
+    alignItems:'center', 
+    justifyContent:'center', 
+    position:'relative',
+    backgroundColor: Colors.bg,
+  },
+  heroImage: { 
+    width: SCREEN_W,
+    // Height will be dynamically set
+  },
+  noImageContainer: {
+    width: SCREEN_W,
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.bg,
+  },
+  noImageEmoji: { fontSize:80 },
   closeBtn: {
     position:'absolute', top:Spacing.md, left:Spacing.md,
     width:36, height:36, borderRadius:18,
     backgroundColor:'rgba(255,255,255,0.92)',
     alignItems:'center', justifyContent:'center', ...Shadow.sm,
+    zIndex: 1,
   },
   saveBtn: {
     position:'absolute', top:Spacing.md, right:Spacing.md,
     width:36, height:36, borderRadius:18,
     backgroundColor:'rgba(255,255,255,0.92)',
     alignItems:'center', justifyContent:'center', ...Shadow.sm,
+    zIndex: 1,
   },
-  heroBadges:  { position:'absolute', bottom:Spacing.md, left:Spacing.md, flexDirection:'row', gap:6 },
+  heroBadges:  { position:'absolute', bottom:Spacing.md, left:Spacing.md, flexDirection:'row', gap:6, zIndex: 1 },
   heroBadge:   { flexDirection:'row', alignItems:'center', borderRadius:Radius.full, paddingVertical:5, paddingHorizontal:10 },
-  imageDots: { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, marginTop:10 },
+  imageDots: { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, marginTop:10, marginBottom:Spacing.sm },
   imageDot: { width:6, height:6, borderRadius:3, backgroundColor: Colors.border },
   imageDotActive: { width:18, backgroundColor: Colors.primary },
 
