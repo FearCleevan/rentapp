@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppText } from '@/components/ui/AppText';
 import { CategoryIcon, CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
@@ -36,47 +37,51 @@ function RealListingCard({
 
   return (
     <TouchableOpacity style={lc.card} onPress={onPress} activeOpacity={0.9}>
-      {/* Image */}
-      <View style={lc.imgArea}>
+      <View style={lc.imgWrapper}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={lc.photo} contentFit="cover" />
         ) : (
           <View style={lc.placeholder} />
         )}
 
+        {/* ✅ REAL gradient */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.50)']}
+          locations={[0.4, 1]}
+          style={lc.overlay}
+        />
+
         {/* Heart */}
         <TouchableOpacity style={lc.heartBtn} onPress={onSave}>
           <Feather
             name="heart"
             size={14}
-            color={saved ? '#FF4D4F' : '#333'}
+            color={saved ? '#FF4D4F' : '#fff'}
           />
         </TouchableOpacity>
-      </View>
 
-      {/* Body */}
-      <View style={lc.body}>
-        {/* Title */}
-        <AppText variant="label" weight="bold" numberOfLines={1} style={lc.title}>
-          {item.title}
-        </AppText>
-
-        {/* Subtext (date + price) */}
-        <AppText variant="caption" color={Colors.subtle} style={lc.subText}>
-          8 days • from ₱{Number(item.price).toLocaleString()}/person
-        </AppText>
-
-        {/* Rating */}
-        <View style={lc.ratingRow}>
-          <Feather name="star" size={12} color="#FFB800" />
-          <AppText variant="caption" weight="bold" style={{ marginLeft: 4 }}>
-            {item.avg_rating > 0 ? item.avg_rating.toFixed(1) : 'New'}
+        {/* Content */}
+        <View style={lc.content}>
+          <AppText variant="label" weight="bold" numberOfLines={1} style={lc.title}>
+            {item.title}
           </AppText>
-          {item.review_count > 0 && (
-            <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 4 }}>
-              {item.review_count} reviews
-            </AppText>
-          )}
+
+          <AppText variant="caption" style={lc.subText}>
+            8 days • from ₱{Number(item.price).toLocaleString()}/person
+          </AppText>
+
+          <View style={lc.bottomRow}>
+            <View style={lc.ratingRow}>
+              <Feather name="star" size={12} color="#FFD700" />
+              <AppText variant="caption" weight="bold" style={{ marginLeft: 4, color: '#fff' }}>
+                {item.avg_rating > 0 ? item.avg_rating.toFixed(1) : 'New'}
+              </AppText>
+            </View>
+
+            <View style={lc.arrowBtn}>
+              <Feather name="arrow-right" size={14} color="#000" />
+            </View>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -85,20 +90,19 @@ function RealListingCard({
 
 const lc = StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     flex: 1,
+    backgroundColor: '#000',
 
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
   },
 
-  imgArea: {
-    height: 140,
+  imgWrapper: {
+    height: 230,
     position: 'relative',
   },
 
@@ -109,44 +113,65 @@ const lc = StyleSheet.create({
 
   placeholder: {
     flex: 1,
-    backgroundColor: '#eee',
+    backgroundColor: '#ddd',
   },
 
-  // 👇 NEW STYLE (white floating heart)
+  // 🔥 Gradient overlay (fake gradient using opacity)
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  // ❤️ Glass heart
   heartBtn: {
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#fff',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
 
-  body: {
-    padding: 10,
+  // 📦 Content container (bottom overlay)
+  content: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
   },
 
   title: {
-    fontSize: 13,
+    color: '#fff',
+    fontSize: 14,
     marginBottom: 2,
   },
 
   subText: {
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 11,
     marginBottom: 6,
+  },
+
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  arrowBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
