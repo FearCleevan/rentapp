@@ -527,9 +527,6 @@ export function LocationPicker({ value, onChange }: Props) {
                         <UrlTile
                             urlTemplate="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
                             maximumZ={19}
-                            flipY={false}
-                            tileSize={256}
-                            shouldReplaceMapContent
                         />
 
                         {/* Draggable pin */}

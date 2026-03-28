@@ -63,8 +63,8 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -114,7 +114,7 @@ export function MapPreview({
           { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 8 },
           (loc) => setDeviceLoc({ lat: loc.coords.latitude, lng: loc.coords.longitude }),
         );
-      } catch {}
+      } catch { }
     })();
     return () => {
       mounted = false;
@@ -194,7 +194,7 @@ export function MapPreview({
   }, [origin.lat, origin.lng, listingLat, listingLng]);
 
   const displayOrigin = snappedOrigin ?? origin;
-  const displayDest   = snappedDest   ?? { lat: listingLat, lng: listingLng };
+  const displayDest = snappedDest ?? { lat: listingLat, lng: listingLng };
 
   // ── Controls ───────────────────────────────────────────────────────────────
 
@@ -279,9 +279,6 @@ export function MapPreview({
           <UrlTile
             urlTemplate="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
             maximumZ={19}
-            flipY={false}
-            tileSize={256}
-            shouldReplaceMapContent
           />
 
           {routeCoords.length > 1 && (
