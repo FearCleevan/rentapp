@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -251,6 +252,11 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar} activeOpacity={0.85}>
             {isUpdating ? (
               <ActivityIndicator color={Colors.white} />
+            ) : profile.avatar_url ? (
+              <Image
+                source={{ uri: profile.avatar_url }}
+                style={styles.avatarImage}
+              />
             ) : (
               <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>
                 {initials}
@@ -536,6 +542,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
   },
 
   sectionTitle: { marginBottom: Spacing.sm, paddingLeft: Spacing.xs },
