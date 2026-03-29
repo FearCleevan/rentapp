@@ -5,20 +5,20 @@ import {
   Switch, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 
-import { AppText }   from '@/components/ui/AppText';
+import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
-import { useToast }  from '@/components/ui/Toast';
-import { signOut }   from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
+import { signOut } from '@/lib/supabase';
 import {
   fetchHostEarnings,
   fetchHostListingCount,
   fetchRenterBookingCount,
 } from '@/lib/profileService';
-import { useProfile }  from '@/hooks/useProfile';
+import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 
@@ -28,19 +28,19 @@ const GUEST_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { icon: 'user',           label: 'Edit profile',     chevron: true              },
-      { icon: 'shield',         label: 'Verify my ID',     chevron: true, badge: true },
-      { icon: 'bell',           label: 'Notifications',    isSwitch: true             },
-      { icon: 'lock',           label: 'Change password',  chevron: true              },
+      { icon: 'user', label: 'Edit profile', chevron: true },
+      { icon: 'shield', label: 'Verify my ID', chevron: true, badge: true },
+      { icon: 'bell', label: 'Notifications', isSwitch: true },
+      { icon: 'lock', label: 'Change password', chevron: true },
     ],
   },
   {
     title: 'Support',
     items: [
-      { icon: 'help-circle',    label: 'Help & FAQ',       chevron: true },
-      { icon: 'message-circle', label: 'Contact support',  chevron: true },
-      { icon: 'file-text',      label: 'Terms of Service', chevron: true },
-      { icon: 'eye-off',        label: 'Privacy Policy',   chevron: true },
+      { icon: 'help-circle', label: 'Help & FAQ', chevron: true },
+      { icon: 'message-circle', label: 'Contact support', chevron: true },
+      { icon: 'file-text', label: 'Terms of Service', chevron: true },
+      { icon: 'eye-off', label: 'Privacy Policy', chevron: true },
     ],
   },
 ] as const;
@@ -49,27 +49,27 @@ const HOST_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { icon: 'user',           label: 'Edit profile',     chevron: true              },
-      { icon: 'shield',         label: 'Verify my ID',     chevron: true, badge: true },
-      { icon: 'bell',           label: 'Notifications',    isSwitch: true             },
-      { icon: 'lock',           label: 'Change password',  chevron: true              },
+      { icon: 'user', label: 'Edit profile', chevron: true },
+      { icon: 'shield', label: 'Verify my ID', chevron: true, badge: true },
+      { icon: 'bell', label: 'Notifications', isSwitch: true },
+      { icon: 'lock', label: 'Change password', chevron: true },
     ],
   },
   {
     title: 'Hosting',
     items: [
-      { icon: 'home',           label: 'My listings',      chevron: true },
-      { icon: 'dollar-sign',    label: 'Payout settings',  chevron: true },
-      { icon: 'bar-chart-2',    label: 'Earnings history', chevron: true },
+      { icon: 'home', label: 'My listings', chevron: true },
+      { icon: 'dollar-sign', label: 'Payout settings', chevron: true },
+      { icon: 'bar-chart-2', label: 'Earnings history', chevron: true },
     ],
   },
   {
     title: 'Support',
     items: [
-      { icon: 'help-circle',    label: 'Help & FAQ',       chevron: true },
-      { icon: 'message-circle', label: 'Contact support',  chevron: true },
-      { icon: 'file-text',      label: 'Terms of Service', chevron: true },
-      { icon: 'eye-off',        label: 'Privacy Policy',   chevron: true },
+      { icon: 'help-circle', label: 'Help & FAQ', chevron: true },
+      { icon: 'message-circle', label: 'Contact support', chevron: true },
+      { icon: 'file-text', label: 'Terms of Service', chevron: true },
+      { icon: 'eye-off', label: 'Privacy Policy', chevron: true },
     ],
   },
 ] as const;
@@ -87,16 +87,55 @@ function StatCard({ value, label }: { value: string | number; label: string }) {
   );
 }
 
+function handleNavigation(label: string) {
+  switch (label) {
+    case 'Edit profile':
+      router.push('/profile/edit-profile');
+      break;
+    case 'Verify my ID':
+      router.push('/profile/verify-id');
+      break;
+    case 'Notifications':
+      router.push('/profile/notifications');
+      break;
+    case 'Change password':
+      router.push('/profile/change-password');
+      break;
+    case 'Help & FAQ':
+      router.push('/profile/help');
+      break;
+    case 'Contact support':
+      router.push('/profile/support');
+      break;
+    case 'Terms of Service':
+      router.push('/profile/terms');
+      break;
+    case 'Privacy Policy':
+      router.push('/profile/privacy');
+      break;
+
+    case 'My listings':
+      router.push('/profile/host/listings');
+      break;
+    case 'Payout settings':
+      router.push('/profile/host/payouts');
+      break;
+    case 'Earnings history':
+      router.push('/profile/host/earnings');
+      break;
+  }
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const router  = useRouter();
-  const toast   = useToast();
+  const router = useRouter();
+  const toast = useToast();
   const { reset, isLoading } = useAuthStore();
   const { profile, isUpdating, refresh, changeAvatar } = useProfile();
 
-  const [pushEnabled,  setPushEnabled]  = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({ bookings: 0, listings: 0, earnings: 0, rating: 0 });
 
@@ -119,7 +158,7 @@ export default function ProfileScreen() {
       bookings: bookingsRes.count,
       listings: listingsRes.count,
       earnings: earningsRes.total,
-      rating:   profile.host_rating ?? 0,
+      rating: profile.host_rating ?? 0,
     });
     setStatsLoading(false);
   }
@@ -139,13 +178,13 @@ export default function ProfileScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect:        [1, 1],
-      quality:       0.8,
+      aspect: [1, 1],
+      quality: 0.8,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       const { error } = await changeAvatar(result.assets[0].uri);
       if (error) toast.show('Failed to update avatar. Please try again.', 'error');
-      else       toast.show('Profile photo updated!', 'success');
+      else toast.show('Profile photo updated!', 'success');
     }
   }
 
@@ -153,7 +192,7 @@ export default function ProfileScreen() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text:  'Sign out',
+        text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
           await signOut();
@@ -192,9 +231,9 @@ export default function ProfileScreen() {
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const fullName    = profile.full_name ?? '';
-  const initials    = fullName.split(' ').map(n => n[0] ?? '').join('').slice(0, 2).toUpperCase();
-  const isVerified  = profile.is_verified ?? false;
+  const fullName = profile.full_name ?? '';
+  const initials = fullName.split(' ').map(n => n[0] ?? '').join('').slice(0, 2).toUpperCase();
+  const isVerified = profile.is_verified ?? false;
   const verifyStatus = (profile as any).id_verification_status ?? 'none';
   const memberSince = new Date(profile.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
 
@@ -275,17 +314,17 @@ export default function ProfileScreen() {
             <ActivityIndicator color={Colors.primary} style={{ flex: 1 }} />
           ) : isHost ? (
             <>
-              <StatCard value={stats.bookings} label="Bookings"  />
+              <StatCard value={stats.bookings} label="Bookings" />
               <View style={styles.statDivider} />
-              <StatCard value={stats.listings}  label="Listings"  />
+              <StatCard value={stats.listings} label="Listings" />
               <View style={styles.statDivider} />
               <StatCard value={stats.rating > 0 ? `★${stats.rating.toFixed(1)}` : '—'} label="Rating" />
             </>
           ) : (
             <>
-              <StatCard value={stats.bookings}  label="Bookings"  />
+              <StatCard value={stats.bookings} label="Bookings" />
               <View style={styles.statDivider} />
-              <StatCard value="Guest"           label="Account"   />
+              <StatCard value="Guest" label="Account" />
               <View style={styles.statDivider} />
               <StatCard value={isVerified ? '✓' : '—'} label="Verified" />
             </>
@@ -335,6 +374,11 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     style={styles.settingsItem}
                     activeOpacity={'isSwitch' in item && item.isSwitch ? 1 : 0.7}
+                    onPress={() => {
+                      if (!('isSwitch' in item && item.isSwitch)) {
+                        handleNavigation(item.label);
+                      }
+                    }}
                   >
                     <View style={styles.settingsIcon}>
                       <Feather name={item.icon as any} size={16} color={Colors.muted} />
@@ -387,155 +431,155 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg },
+  safe: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.xl, paddingBottom: Spacing['5xl'], gap: Spacing.lg },
   centerState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   profileHeader: {
     backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.xl,
-    alignItems:      'center',
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
     ...Shadow.sm,
   },
   avatar: {
-    width:           80,
-    height:          80,
-    borderRadius:    40,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: Colors.primary,
-    alignItems:      'center',
-    justifyContent:  'center',
-    position:        'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   editAvatarBtn: {
-    position:        'absolute',
-    bottom:          0,
-    right:           0,
-    width:           26,
-    height:          26,
-    borderRadius:    13,
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.ink,
-    alignItems:      'center',
-    justifyContent:  'center',
-    borderWidth:     2,
-    borderColor:     Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   hostBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   Colors.primaryLight,
-    borderRadius:      Radius.full,
-    paddingVertical:   5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingVertical: 5,
     paddingHorizontal: 12,
-    marginTop:         Spacing.sm,
-    borderWidth:       1,
-    borderColor:       Colors.primary + '30',
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
   },
   verifyBanner: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   '#FFFBEB',
-    borderRadius:      Radius.md,
-    paddingVertical:   10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: Radius.md,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    marginTop:         Spacing.md,
-    borderWidth:       1,
-    borderColor:       '#FDE68A',
-    width:             '100%',
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    width: '100%',
   },
   verifiedBanner: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   Colors.tealLight,
-    borderRadius:      Radius.full,
-    paddingVertical:   8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.tealLight,
+    borderRadius: Radius.full,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    marginTop:         Spacing.md,
+    marginTop: Spacing.md,
   },
 
   statsRow: {
-    flexDirection:   'row',
+    flexDirection: 'row',
     backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.lg,
-    alignItems:      'center',
-    minHeight:       72,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    minHeight: 72,
     ...Shadow.sm,
   },
-  statCard:    { flex: 1, alignItems: 'center' },
+  statCard: { flex: 1, alignItems: 'center' },
   statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
 
   earningsBanner: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.tealLight,
-    borderRadius:    Radius.md,
-    padding:         Spacing.md,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
   },
 
   becomeHostCard: {
-    flexDirection:   'row',
-    alignItems:      'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.lg,
-    borderWidth:     1.5,
-    borderColor:     Colors.primary + '40',
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.primary + '40',
     ...Shadow.sm,
   },
   becomeHostLeft: {
-    width:           60,
-    height:          60,
-    borderRadius:    Radius.md,
+    width: 60,
+    height: 60,
+    borderRadius: Radius.md,
     backgroundColor: Colors.primaryLight,
-    alignItems:      'center',
-    justifyContent:  'center',
-    flexShrink:      0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 
-  sectionTitle:  { marginBottom: Spacing.sm, paddingLeft: Spacing.xs },
+  sectionTitle: { marginBottom: Spacing.sm, paddingLeft: Spacing.xs },
   settingsCard: {
     backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
-    overflow:        'hidden',
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
     ...Shadow.sm,
   },
   settingsItem: {
-    flexDirection:     'row',
-    alignItems:        'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical:   Spacing.md,
+    paddingVertical: Spacing.md,
   },
   settingsIcon: {
-    width:           34,
-    height:          34,
-    borderRadius:    10,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: Colors.bg,
-    alignItems:      'center',
-    justifyContent:  'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemDivider: {
-    height:           1,
-    backgroundColor:  Colors.border,
+    height: 1,
+    backgroundColor: Colors.border,
     marginHorizontal: Spacing.lg,
   },
   requiredBadge: {
-    backgroundColor:   Colors.primaryLight,
-    borderRadius:      Radius.full,
-    paddingVertical:   3,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingVertical: 3,
     paddingHorizontal: 8,
-    marginRight:       Spacing.sm,
+    marginRight: Spacing.sm,
   },
   signOutBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.white,
-    borderRadius:    Radius.lg,
+    borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
-    borderWidth:     1.5,
-    borderColor:     Colors.error,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
     ...Shadow.sm,
   },
 });
