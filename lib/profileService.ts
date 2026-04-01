@@ -84,6 +84,41 @@ export async function fetchHostEarnings(userId: string) {
   return { total, error };
 }
 
+// ─── Gov ID upload ────────────────────────────────────────────────────────────
+
+/**
+ * Upload a government ID image (front or selfie) to Supabase Storage
+ * and update the profile row accordingly.
+ */
+export async function uploadGovId(userId: string, uri: string, type: 'front' | 'selfie') {
+  const response = await fetch(uri);
+  const blob     = await response.blob();
+  const ext      = uri.split('.').pop() ?? 'jpg';
+  const filePath = `${userId}/${type}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('id-documents')
+    .upload(filePath, blob, { upsert: true, contentType: `image/${ext}` });
+
+  if (uploadError) return { url: null, error: uploadError };
+
+  const { data } = supabase.storage.from('id-documents').getPublicUrl(filePath);
+  const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
+
+  const field = type === 'front'
+    ? { gov_id_url: publicUrl }
+    : { gov_id_selfie_url: publicUrl };
+
+  const { error: updateError } = await updateProfile(userId, field);
+  return { url: publicUrl, error: updateError };
+}
+
+/** Mark the user's verification as pending (after both ID images uploaded) */
+export async function submitIdVerification(userId: string) {
+  const { error } = await updateProfile(userId, { id_verification_status: 'pending' });
+  return { error };
+}
+
 // ─── Avatar upload ────────────────────────────────────────────────────────────
 
 /**

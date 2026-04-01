@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import {
-  View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator
+  View, ScrollView, StyleSheet, TouchableOpacity,
+  ActivityIndicator, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppInput } from '@/components/ui/AppInput';
 import { useToast } from '@/components/ui/Toast';
-
 import { useProfile } from '@/hooks/useProfile';
 
 export default function EditProfileScreen() {
@@ -16,9 +18,9 @@ export default function EditProfileScreen() {
   const { profile, update, changeAvatar, isUpdating } = useProfile();
 
   const [fullName, setFullName] = useState('');
-  const [bio, setBio] = useState('');
-  const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
+  const [bio,      setBio]      = useState('');
+  const [phone,    setPhone]    = useState('');
+  const [city,     setCity]     = useState('');
 
   useEffect(() => {
     if (profile) {
@@ -31,17 +33,13 @@ export default function EditProfileScreen() {
 
   async function handleSave() {
     const { error } = await update({
-      full_name: fullName,
+      full_name:    fullName,
       bio,
       phone,
       default_city: city,
     });
-
-    if (error) {
-      toast.show(error.message, 'error');
-    } else {
-      toast.show('Profile updated!', 'success');
-    }
+    if (error) toast.show(error.message, 'error');
+    else       toast.show('Profile updated!', 'success');
   }
 
   async function handleAvatarChange() {
@@ -50,110 +48,204 @@ export default function EditProfileScreen() {
       toast.show('Permission required', 'error');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets[0]?.uri) {
       const { error } = await changeAvatar(result.assets[0].uri);
-
       if (error) toast.show('Failed to upload image', 'error');
-      else toast.show('Avatar updated!', 'success');
+      else       toast.show('Avatar updated!', 'success');
     }
   }
 
   if (!profile) return null;
 
-  return (
-    <View style={styles.container}>
-      <AppText variant="h2" weight="extrabold">Edit Profile</AppText>
+  const initials = profile.full_name?.slice(0, 2).toUpperCase() ?? '??';
 
-      {/* Avatar */}
-      <TouchableOpacity style={styles.avatar} onPress={handleAvatarChange}>
-        {isUpdating ? (
-          <ActivityIndicator color={Colors.white} />
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* ── Avatar ── */}
+      <TouchableOpacity style={styles.avatarWrapper} onPress={handleAvatarChange} activeOpacity={0.8}>
+        {profile.avatar_url ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
         ) : (
-          <AppText color={Colors.white} weight="extrabold">
-            {profile.full_name?.[0]}
-          </AppText>
+          <View style={styles.avatarPlaceholder}>
+            <AppText variant="h2" weight="extrabold" color={Colors.white}>{initials}</AppText>
+          </View>
         )}
+        <View style={styles.avatarBadge}>
+          {isUpdating
+            ? <ActivityIndicator size="small" color={Colors.white} />
+            : <Feather name="camera" size={14} color={Colors.white} />}
+        </View>
       </TouchableOpacity>
 
-      {/* Form */}
-      <View style={styles.card}>
-        <TextInput
+      <AppText variant="label" color={Colors.muted} center style={{ marginBottom: Spacing.lg }}>
+        Tap to change photo
+      </AppText>
+
+      {/* ── Stats row ── */}
+      <View style={styles.statsRow}>
+        <StatCard label="Listings"  value={String(profile.total_listings  ?? 0)} />
+        <StatCard label="Bookings"  value={String(profile.total_bookings  ?? 0)} />
+        {profile.is_host && profile.host_rating ? (
+          <StatCard label="Host ★"   value={profile.host_rating.toFixed(1)} accent />
+        ) : (
+          <StatCard label="Trips"    value={String(profile.renter_review_count ?? 0)} />
+        )}
+      </View>
+
+      {/* ── Form ── */}
+      <View style={styles.section}>
+        <AppText variant="label" weight="bold" color={Colors.muted} style={styles.sectionTitle}>
+          PERSONAL INFO
+        </AppText>
+
+        <AppInput
+          label="Full Name"
           value={fullName}
           onChangeText={setFullName}
-          placeholder="Full Name"
-          style={styles.input}
+          placeholder="Enter your full name"
+          required
+          iconLeft={<Feather name="user" size={16} color={Colors.subtle} />}
         />
 
-        <TextInput
+        <AppInput
+          label="Bio"
           value={bio}
           onChangeText={setBio}
-          placeholder="Bio"
+          placeholder="Tell others about yourself"
           multiline
-          style={[styles.input, styles.textArea]}
+          numberOfLines={3}
+          style={styles.textArea}
+          containerStyle={{ marginTop: Spacing.md }}
+          iconLeft={<Feather name="edit-3" size={16} color={Colors.subtle} />}
         />
+      </View>
 
-        <TextInput
+      <View style={styles.section}>
+        <AppText variant="label" weight="bold" color={Colors.muted} style={styles.sectionTitle}>
+          CONTACT
+        </AppText>
+
+        <AppInput
+          label="Phone Number"
           value={phone}
           onChangeText={setPhone}
-          placeholder="Phone"
-          style={styles.input}
+          placeholder="+63 9XX XXX XXXX"
+          keyboardType="phone-pad"
+          iconLeft={<Feather name="phone" size={16} color={Colors.subtle} />}
         />
 
-        <TextInput
+        <AppInput
+          label="City"
           value={city}
           onChangeText={setCity}
-          placeholder="City"
-          style={styles.input}
+          placeholder="e.g. Davao City"
+          containerStyle={{ marginTop: Spacing.md }}
+          iconLeft={<Feather name="map-pin" size={16} color={Colors.subtle} />}
         />
       </View>
 
       <AppButton
-        label={isUpdating ? 'Saving...' : 'Save Changes'}
+        label={isUpdating ? 'Saving…' : 'Save Changes'}
         onPress={handleSave}
+        loading={isUpdating}
+        style={{ marginTop: Spacing.lg }}
       />
+    </ScrollView>
+  );
+}
+
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <View style={statStyles.card}>
+      <AppText
+        variant="h3"
+        weight="extrabold"
+        color={accent ? Colors.teal : Colors.ink}
+      >
+        {value}
+      </AppText>
+      <AppText variant="caption" color={Colors.muted}>{label}</AppText>
     </View>
   );
 }
 
+const statStyles = StyleSheet.create({
+  card: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    ...Shadow.sm,
+  },
+});
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: Spacing.xl,
     backgroundColor: Colors.bg,
   },
-  avatar: {
-    marginTop: Spacing.lg,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  scroll: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing['5xl'],
+  },
+  avatarWrapper: {
+    alignSelf: 'center',
+    marginBottom: Spacing.xs,
+  },
+  avatarImg: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 3,
+    borderColor: Colors.white,
+  },
+  avatarPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
   },
-  card: {
-    marginTop: Spacing.lg,
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    ...Shadow.sm,
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.teal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+  statsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    letterSpacing: 0.8,
     marginBottom: Spacing.md,
   },
   textArea: {
-    height: 100,
+    height: 80,
+    textAlignVertical: 'top',
   },
 });
