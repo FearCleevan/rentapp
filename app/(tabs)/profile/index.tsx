@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
-import { Image } from 'react-native';
+import { Image } from 'expo-image';
 
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -135,10 +135,11 @@ export default function ProfileScreen() {
   const { reset, isLoading } = useAuthStore();
   const { profile, isUpdating, refresh, changeAvatar } = useProfile();
 
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [pushEnabled,  setPushEnabled]  = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [stats, setStats] = useState({ bookings: 0, listings: 0, earnings: 0, rating: 0 });
+  const [stats,        setStats]        = useState({ bookings: 0, listings: 0, earnings: 0, rating: 0 });
+  const [previewUri,   setPreviewUri]   = useState<string | null>(null);
 
   const isHost = (profile as any)?.is_host === true;
   const SECTIONS = isHost ? HOST_SECTIONS : GUEST_SECTIONS;
@@ -183,9 +184,16 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]?.uri) {
-      const { error } = await changeAvatar(result.assets[0].uri);
-      if (error) toast.show('Failed to update avatar. Please try again.', 'error');
-      else toast.show('Profile photo updated!', 'success');
+      const localUri = result.assets[0].uri;
+      setPreviewUri(localUri);           // show immediately — no waiting for upload
+      const { error } = await changeAvatar(localUri);
+      if (error) {
+        setPreviewUri(null);             // revert on failure
+        toast.show('Failed to update avatar. Please try again.', 'error');
+      } else {
+        setPreviewUri(null);             // store url now lives in profile; clear local preview
+        toast.show('Profile photo updated!', 'success');
+      }
     }
   }
 
@@ -250,12 +258,15 @@ export default function ProfileScreen() {
         {/* ── Profile header ── */}
         <View style={styles.profileHeader}>
           <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar} activeOpacity={0.85}>
-            {isUpdating ? (
+            {isUpdating && !previewUri ? (
               <ActivityIndicator color={Colors.white} />
-            ) : profile.avatar_url ? (
+            ) : (previewUri ?? profile.avatar_url) ? (
               <Image
-                source={{ uri: profile.avatar_url }}
+                key={previewUri ?? profile.avatar_url}
+                source={{ uri: previewUri ?? profile.avatar_url! }}
                 style={styles.avatarImage}
+                contentFit="cover"
+                cachePolicy="none"
               />
             ) : (
               <AppText weight="extrabold" color={Colors.white} style={{ fontSize: 28 }}>

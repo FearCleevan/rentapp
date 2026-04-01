@@ -127,15 +127,17 @@ export async function submitIdVerification(userId: string) {
  * @param uri    - The local file URI from expo-image-picker
  */
 export async function uploadAvatar(userId: string, uri: string) {
-  // Convert local URI to blob
-  const response  = await fetch(uri);
-  const blob      = await response.blob();
-  const ext       = uri.split('.').pop() ?? 'jpg';
-  const filePath  = `${userId}/avatar.${ext}`;
+  // Use ArrayBuffer — more reliable than .blob() for local file:// URIs on Android
+  const response   = await fetch(uri);
+  const arrayBuffer = await response.arrayBuffer();
+
+  // Always store as jpeg; expo-image-picker always outputs jpeg after editing
+  const filePath   = `${userId}/avatar.jpg`;
+  const mimeType   = 'image/jpeg';
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(filePath, blob, { upsert: true, contentType: `image/${ext}` });
+    .upload(filePath, arrayBuffer, { upsert: true, contentType: mimeType });
 
   if (uploadError) return { url: null, error: uploadError };
 
@@ -143,7 +145,7 @@ export async function uploadAvatar(userId: string, uri: string) {
     .from('avatars')
     .getPublicUrl(filePath);
 
-  // Add cache-busting timestamp so the UI refreshes
+  // Cache-bust so expo-image/RN Image discards the old cached bytes
   const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
 
   const { error: updateError } = await updateAvatar(userId, publicUrl);

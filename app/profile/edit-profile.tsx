@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Image,
+  ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 
@@ -17,10 +18,11 @@ export default function EditProfileScreen() {
   const toast = useToast();
   const { profile, update, changeAvatar, isUpdating } = useProfile();
 
-  const [fullName, setFullName] = useState('');
-  const [bio,      setBio]      = useState('');
-  const [phone,    setPhone]    = useState('');
-  const [city,     setCity]     = useState('');
+  const [fullName,    setFullName]    = useState('');
+  const [bio,         setBio]         = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [city,        setCity]        = useState('');
+  const [previewUri,  setPreviewUri]  = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -55,15 +57,23 @@ export default function EditProfileScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]?.uri) {
-      const { error } = await changeAvatar(result.assets[0].uri);
-      if (error) toast.show('Failed to upload image', 'error');
-      else       toast.show('Avatar updated!', 'success');
+      const localUri = result.assets[0].uri;
+      setPreviewUri(localUri);           // show immediately — no waiting for upload
+      const { error } = await changeAvatar(localUri);
+      if (error) {
+        setPreviewUri(null);             // revert preview on failure
+        toast.show('Failed to upload image', 'error');
+      } else {
+        setPreviewUri(null);             // store url now in profile; clear local preview
+        toast.show('Avatar updated!', 'success');
+      }
     }
   }
 
   if (!profile) return null;
 
-  const initials = profile.full_name?.slice(0, 2).toUpperCase() ?? '??';
+  const initials   = profile.full_name?.slice(0, 2).toUpperCase() ?? '??';
+  const displayUri = previewUri ?? profile.avatar_url;
 
   return (
     <ScrollView
@@ -74,8 +84,14 @@ export default function EditProfileScreen() {
     >
       {/* ── Avatar ── */}
       <TouchableOpacity style={styles.avatarWrapper} onPress={handleAvatarChange} activeOpacity={0.8}>
-        {profile.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
+        {displayUri ? (
+          <Image
+            key={displayUri}
+            source={{ uri: displayUri }}
+            style={styles.avatarImg}
+            contentFit="cover"
+            cachePolicy="none"
+          />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <AppText variant="h2" weight="extrabold" color={Colors.white}>{initials}</AppText>
