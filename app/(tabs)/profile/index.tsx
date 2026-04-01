@@ -303,25 +303,43 @@ export default function ProfileScreen() {
           )}
 
           {/* Verification */}
-          {!isVerified ? (
-            <TouchableOpacity style={styles.verifyBanner} activeOpacity={0.85}>
-              <Feather name="alert-circle" size={14} color="#854F0B" />
-              <View style={{ flex: 1, marginLeft: 6 }}>
-                <AppText variant="label" weight="bold" color="#854F0B">
-                  {verifyStatus === 'pending'
-                    ? 'ID verification is under review'
-                    : 'Verify your ID to unlock full access'}
-                </AppText>
-              </View>
-              {verifyStatus === 'none' && <Feather name="chevron-right" size={14} color="#854F0B" />}
-            </TouchableOpacity>
-          ) : (
+          {isVerified ? (
             <View style={styles.verifiedBanner}>
               <Feather name="check-circle" size={14} color={Colors.teal} />
               <AppText variant="label" weight="bold" color={Colors.teal} style={{ marginLeft: 6 }}>
                 ID Verified
               </AppText>
             </View>
+          ) : verifyStatus === 'pending' ? (
+            <View style={styles.pendingBanner}>
+              <View style={styles.pendingIconWrap}>
+                <Feather name="clock" size={13} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1, marginLeft: Spacing.sm }}>
+                <AppText variant="label" weight="bold" color={Colors.primary}>
+                  Verification Under Review
+                </AppText>
+                <AppText variant="caption" color={Colors.muted}>
+                  We'll notify you within 1–2 business days
+                </AppText>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.verifyBanner}
+              activeOpacity={0.85}
+              onPress={() => router.push('/profile/verify-id')}
+            >
+              <Feather name="alert-circle" size={14} color="#854F0B" />
+              <View style={{ flex: 1, marginLeft: 6 }}>
+                <AppText variant="label" weight="bold" color="#854F0B">
+                  {verifyStatus === 'rejected'
+                    ? 'Verification failed — re-submit your ID'
+                    : 'Verify your ID to unlock full access'}
+                </AppText>
+              </View>
+              <Feather name="chevron-right" size={14} color="#854F0B" />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -512,6 +530,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     marginTop: Spacing.md,
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    width: '100%',
+  },
+  pendingIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   statsRow: {

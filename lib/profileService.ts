@@ -90,27 +90,35 @@ export async function fetchHostEarnings(userId: string) {
  * Upload a government ID image (front or selfie) to Supabase Storage
  * and update the profile row accordingly.
  */
-export async function uploadGovId(userId: string, uri: string, type: 'front' | 'selfie') {
-  const response = await fetch(uri);
-  const blob     = await response.blob();
-  const ext      = uri.split('.').pop() ?? 'jpg';
-  const filePath = `${userId}/${type}.${ext}`;
+export async function uploadGovId(userId: string, uri: string, type: 'front' | 'back' | 'selfie') {
+  // Use ArrayBuffer — more reliable than .blob() for local file:// URIs on Android
+  const response    = await fetch(uri);
+  const arrayBuffer = await response.arrayBuffer();
+
+  // Normalised, predictable paths — admin can enumerate by convention
+  const fileMap = { front: 'id_front.jpg', back: 'id_back.jpg', selfie: 'id_selfie.jpg' };
+  const filePath = `${userId}/${fileMap[type]}`;
 
   const { error: uploadError } = await supabase.storage
     .from('id-documents')
-    .upload(filePath, blob, { upsert: true, contentType: `image/${ext}` });
+    .upload(filePath, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
 
   if (uploadError) return { url: null, error: uploadError };
 
   const { data } = supabase.storage.from('id-documents').getPublicUrl(filePath);
   const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
 
-  const field = type === 'front'
-    ? { gov_id_url: publicUrl }
-    : { gov_id_selfie_url: publicUrl };
-
-  const { error: updateError } = await updateProfile(userId, field);
-  return { url: publicUrl, error: updateError };
+  // Only 'front' and 'selfie' map to DB columns; 'back' is storage-only
+  if (type === 'front') {
+    const { error } = await updateProfile(userId, { gov_id_url: publicUrl });
+    return { url: publicUrl, error };
+  }
+  if (type === 'selfie') {
+    const { error } = await updateProfile(userId, { gov_id_selfie_url: publicUrl });
+    return { url: publicUrl, error };
+  }
+  // back: upload succeeded; no dedicated DB column
+  return { url: publicUrl, error: null };
 }
 
 /** Mark the user's verification as pending (after both ID images uploaded) */
