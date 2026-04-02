@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
-  View, FlatList, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Image,
+  View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 import { AppText } from '@/components/ui/AppText';
 import { useAuthStore } from '@/store/authStore';
 import { fetchHostListings } from '@/lib/listingsService';
-import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
 import type { ListingCategory, ListingStatus } from '@/types/database';
 
 type HostListing = {
@@ -40,50 +41,51 @@ function fmt(price: number, unit: string) {
 }
 
 function ListingCard({ item }: { item: HostListing }) {
-  const st = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.draft;
+  const st  = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.draft;
+  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
 
   return (
     <View style={styles.card}>
-      {/* Cover photo */}
-      <View style={styles.photoWrap}>
+      <View style={styles.imgWrapper}>
         {item.cover_photo_url ? (
-          <Image source={{ uri: item.cover_photo_url }} style={styles.photo} resizeMode="cover" />
+          <Image source={{ uri: item.cover_photo_url }} style={styles.photo} contentFit="cover" />
         ) : (
-          <View style={styles.photoPlaceholder}>
-            <CategoryIcon category={item.category} size={28} showTile={false} />
+          <View style={[styles.placeholder, { backgroundColor: cfg.bg }]}>
+            <Feather name={cfg.icon} size={32} color={cfg.color} />
           </View>
         )}
+
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.68)']}
+          locations={[0.35, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        {/* Status badge */}
         <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
           <AppText variant="caption" weight="semibold" color={st.color}>{st.label}</AppText>
         </View>
-      </View>
 
-      {/* Info */}
-      <View style={styles.cardBody}>
-        <View style={styles.cardTop}>
-          <AppText variant="label" weight="bold" numberOfLines={1} style={{ flex: 1 }}>
-            {item.title}
-          </AppText>
-          <AppText variant="label" weight="semibold" color={Colors.teal}>
-            {fmt(item.price, item.price_unit)}
-          </AppText>
+        {/* Overlay content */}
+        <View style={styles.content}>
+          <AppText numberOfLines={1} style={styles.title}>{item.title}</AppText>
+          <AppText style={styles.subText}>{fmt(item.price, item.price_unit)}</AppText>
+          <View style={styles.bottomRow}>
+            <View style={styles.ratingRow}>
+              <Feather name="star" size={11} color="#FFD700" />
+              <AppText style={styles.ratingText}>
+                {item.avg_rating > 0 ? item.avg_rating.toFixed(1) : 'New'}
+              </AppText>
+              <AppText style={styles.metaText}>
+                {'  ·  '}{item.review_count} reviews{'  ·  '}{item.total_bookings} bookings
+              </AppText>
+            </View>
+            <View style={styles.arrowBtn}>
+              <Feather name="arrow-right" size={13} color="#000" />
+            </View>
+          </View>
         </View>
-
-        <View style={styles.cardMeta}>
-          <MetaPill icon="star" value={item.avg_rating > 0 ? item.avg_rating.toFixed(1) : '—'} />
-          <MetaPill icon="users" value={`${item.review_count} reviews`} />
-          <MetaPill icon="calendar" value={`${item.total_bookings} bookings`} />
-        </View>
       </View>
-    </View>
-  );
-}
-
-function MetaPill({ icon, value }: { icon: string; value: string }) {
-  return (
-    <View style={styles.pill}>
-      <Feather name={icon as any} size={11} color={Colors.subtle} />
-      <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 3 }}>{value}</AppText>
     </View>
   );
 }
@@ -166,24 +168,23 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   card: {
-    backgroundColor: Colors.white,
     borderRadius: Radius.xl,
     overflow: 'hidden',
     marginBottom: Spacing.md,
-    ...Shadow.sm,
+    backgroundColor: '#000',
+    ...Shadow.md,
   },
-  photoWrap: {
-    height: 140,
+  imgWrapper: {
+    height: 220,
     position: 'relative',
   },
   photo: {
     width: '100%',
     height: '100%',
   },
-  photoPlaceholder: {
+  placeholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -195,23 +196,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
   },
-  cardBody: {
-    padding: Spacing.md,
-    gap: Spacing.sm,
+  content: {
+    position: 'absolute',
+    bottom: 10,
+    left: 12,
+    right: 12,
   },
-  cardTop: {
+  title: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginBottom: 3,
+  },
+  subText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    flex: 1,
   },
-  cardMeta: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    flexWrap: 'wrap',
+  ratingText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginLeft: 4,
   },
-  pill: {
-    flexDirection: 'row',
+  metaText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    marginLeft: 2,
+  },
+  arrowBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     flex: 1,

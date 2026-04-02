@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
 
   imgWrapper: {
-    height: 180,
+    height: 230,
     position: 'relative',
   },
 
