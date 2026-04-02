@@ -44,12 +44,17 @@ export interface SavedListingRow {
   category:        string;
   address:         string;
   city:            string;
+  lat:             number;
+  lng:             number;
   price:           number;
   price_unit:      string;
   avg_rating:      number;
   review_count:    number;
   instant_book:    boolean;
   cover_photo_url: string | null;
+  photos:          string[];
+  description:     string | null;
+  amenities:       string[];
   host_name:       string;
   host_is_verified: boolean;
 }
@@ -164,7 +169,7 @@ export async function fetchSavedListings(userId: string): Promise<{ data: SavedL
     const listingIds = saved.map(s => s.listing_id);
     const { data: listings } = await supabase
       .from('listings')
-      .select('id, host_id, title, category, address, city, price, price_unit, avg_rating, review_count, instant_book, cover_photo_url')
+      .select('id, host_id, title, category, address, city, lat, lng, price, price_unit, avg_rating, review_count, instant_book, cover_photo_url, photos, description, amenities')
       .in('id', listingIds)
       .eq('status', 'active');
 
@@ -191,12 +196,17 @@ export async function fetchSavedListings(userId: string): Promise<{ data: SavedL
           category:         l.category,
           address:          l.address,
           city:             l.city,
+          lat:              l.lat,
+          lng:              l.lng,
           price:            Number(l.price),
           price_unit:       l.price_unit,
           avg_rating:       l.avg_rating,
           review_count:     l.review_count,
           instant_book:     l.instant_book,
           cover_photo_url:  l.cover_photo_url ?? null,
+          photos:           l.photos ?? [],
+          description:      l.description ?? null,
+          amenities:        l.amenities ?? [],
           host_name:        host?.full_name   ?? 'Host',
           host_is_verified: host?.is_verified ?? false,
         };

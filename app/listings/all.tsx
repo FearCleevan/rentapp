@@ -15,6 +15,8 @@ import { CategoryPills }      from '@/components/explore/CategoryPills';
 import { CATEGORY_CONFIG }    from '@/components/ui/CategoryIcon';
 
 import { useListings } from '@/hooks/useListings';
+import { useSaved } from '@/hooks/useBookings';
+import { useToast } from '@/components/ui/Toast';
 import type { ListingRow } from '@/lib/listingsService';
 import type { Category } from '@/components/explore/exploreData';
 import { Colors, Spacing, Radius } from '@/constants/theme';
@@ -52,8 +54,16 @@ export default function AllListingsScreen() {
   const [search,        setSearch]        = useState('');
   const [category,      setCategory]      = useState<Category>('all');
   const [radiusKm,      setRadiusKm]      = useState(10);
-  const [saved,         setSaved]         = useState<Set<string>>(new Set());
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
+
+  const { savedIds, toggleSave } = useSaved();
+  const { show: showToast } = useToast();
+
+  function handleSave(id: string) {
+    const wasSaved = savedIds.has(id);
+    toggleSave(id);
+    showToast(wasSaved ? 'Removed from saved' : 'Saved!', wasSaved ? 'unsaved' : 'saved');
+  }
   const [filterVisible, setFilterVisible] = useState(false);
   const [sort,          setSort]          = useState<SortOption>('Nearest');
   const [pendingRadius,   setPendingRadius]   = useState(10);
@@ -72,14 +82,6 @@ export default function AllListingsScreen() {
   const { listings, isLoading, error } = useListings(filters);
   const filtered = useMemo(() => sortListings(listings, sort), [listings, sort]);
   const selected = selectedId ? filtered.find((l) => l.id === selectedId) ?? null : null;
-
-  function toggleSave(id: string) {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -197,8 +199,8 @@ export default function AllListingsScreen() {
                     photos: item.photos ?? [],
                     description: item.description ?? 'No description provided.',
                   }}
-                  saved={saved.has(item.id)}
-                  onSave={() => toggleSave(item.id)}
+                  saved={savedIds.has(item.id)}
+                  onSave={() => handleSave(item.id)}
                   onPress={() => setSelectedId(item.id)}
                 />
               </View>
@@ -257,8 +259,8 @@ export default function AllListingsScreen() {
           photos:      selected.photos ?? [],
           description: selected.description ?? 'No description provided.',
         } : null}
-        saved={selected ? saved.has(selected.id) : false}
-        onSave={() => selected && toggleSave(selected.id)}
+        saved={selected ? savedIds.has(selected.id) : false}
+        onSave={() => selected && handleSave(selected.id)}
         onClose={() => setSelectedId(null)}
         onBook={() => setSelectedId(null)}
       />

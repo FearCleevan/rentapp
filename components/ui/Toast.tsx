@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { Snackbar } from 'react-native-paper';
 import { Colors } from '@/constants/theme';
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info' | 'saved' | 'unsaved';
 
 interface ToastState {
   visible:  boolean;
@@ -25,6 +25,8 @@ const typeColors: Record<ToastType, string> = {
   success: Colors.teal,
   error:   Colors.error,
   info:    Colors.ink,
+  saved:   '#1A1A2E',
+  unsaved: '#6B7280',
 };
 
 export function ToastProvider() {

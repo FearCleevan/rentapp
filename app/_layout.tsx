@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { useSession } from '@/hooks/useSession';
 import { Colors, PaperTheme } from '@/constants/theme';
+import { ToastProvider } from '@/components/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -69,6 +70,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PaperProvider theme={{ colors: PaperTheme.colors } as any}>
           <StatusBar style="dark" />
+          <ToastProvider />
           <AuthGuard>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />

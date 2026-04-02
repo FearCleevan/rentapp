@@ -18,6 +18,8 @@ import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
 import { RadiusFilterSheet } from '@/components/explore/RadiusFilterSheet';
 
 import { useListings, useDiscoverSections } from '@/hooks/useListings';
+import { useSaved } from '@/hooks/useBookings';
+import { useToast } from '@/components/ui/Toast';
 import { type ListingRow } from '@/lib/listingsService';
 import { type Category } from '@/components/explore/exploreData';
 import { Colors, Spacing, Radius } from '@/constants/theme';
@@ -197,11 +199,13 @@ export default function ExploreScreen() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<Category>('all');
   const [radiusKm, setRadiusKm] = useState(5);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterVisible, setFilterVisible] = useState(false);
   const [pendingRadius, setPendingRadius] = useState(5);
   const [pendingCategory, setPendingCategory] = useState<Category>('all');
+
+  const { savedIds, toggleSave } = useSaved();
+  const { show: showToast } = useToast();
 
   const filters = useMemo(() => ({
     category: mapUiCategoryToDb(category) as any,
@@ -216,8 +220,10 @@ export default function ExploreScreen() {
 
   const selectedListing = selectedId ? listings.find(l => l.id === selectedId) ?? null : null;
 
-  function toggleSave(id: string) {
-    setSaved(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  function handleSave(id: string) {
+    const wasSaved = savedIds.has(id);
+    toggleSave(id);
+    showToast(wasSaved ? 'Removed from saved' : 'Saved!', wasSaved ? 'unsaved' : 'saved');
   }
 
   function applyFilter() { setRadiusKm(pendingRadius); setCategory(pendingCategory); setFilterVisible(false); }
@@ -308,8 +314,8 @@ export default function ExploreScreen() {
           <View style={styles.cardWrap}>
             <RealListingCard
               item={item}
-              saved={saved.has(item.id)}
-              onSave={() => toggleSave(item.id)}
+              saved={savedIds.has(item.id)}
+              onSave={() => handleSave(item.id)}
               onPress={() => setSelectedId(item.id)}
             />
           </View>
@@ -364,8 +370,8 @@ export default function ExploreScreen() {
             userLng: USER_LNG,
             description: selectedListing.description ?? 'No description provided.',
           }}
-          saved={saved.has(selectedListing.id)}
-          onSave={() => toggleSave(selectedListing.id)}
+          saved={savedIds.has(selectedListing.id)}
+          onSave={() => handleSave(selectedListing.id)}
           onClose={() => setSelectedId(null)}
           onBook={() => setSelectedId(null)}
         />

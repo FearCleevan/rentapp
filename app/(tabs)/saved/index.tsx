@@ -1,110 +1,154 @@
 // app/(tabs)/saved/index.tsx
+import { useState } from 'react';
 import {
-  View, ScrollView, StyleSheet, TouchableOpacity,
+  View, FlatList, StyleSheet, TouchableOpacity,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { AppText }    from '@/components/ui/AppText';
-import { CategoryIcon, CATEGORY_CONFIG } from '@/components/ui/CategoryIcon';
-import { useSaved }   from '@/hooks/useBookings';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import { AppText }            from '@/components/ui/AppText';
+import { CATEGORY_CONFIG }    from '@/components/ui/CategoryIcon';
+import { ListingDetailSheet } from '@/components/explore/ListingDetailSheet';
+import { useSaved }           from '@/hooks/useBookings';
+import { useToast }           from '@/components/ui/Toast';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 import type { SavedListingRow } from '@/lib/bookingsService';
+import type { Listing } from '@/components/explore/exploreData';
+
+const SIDE_PAD  = Spacing.xl;
+const CARD_GAP  = Spacing.sm;
+
+// ─── Map SavedListingRow → Listing ────────────────────────────────────────────
+
+function toListingShape(item: SavedListingRow): Listing {
+  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
+  return {
+    id:           item.listing_id,
+    category:     item.category as any,
+    title:        item.title,
+    location:     item.address,
+    address:      item.address,
+    city:         item.city,
+    distance:     0,
+    lat:          item.lat,
+    lng:          item.lng,
+    price:        item.price,
+    priceUnit:    item.price_unit,
+    rating:       item.avg_rating,
+    reviewCount:  item.review_count,
+    isVerified:   item.host_is_verified,
+    instantBook:  item.instant_book,
+    hostName:     item.host_name,
+    hostAvatar:   (item.host_name ?? 'H').split(' ').map((n: string) => n[0] ?? '').join('').slice(0, 2).toUpperCase(),
+    amenities:    item.amenities ?? [],
+    emoji:        '📦',
+    bgColor:      cfg.bg ?? '#F0EDE6',
+    coverPhotoUrl: item.cover_photo_url,
+    photos:       item.photos ?? [],
+    description:  item.description ?? 'No description provided.',
+  };
+}
 
 // ─── Saved card ───────────────────────────────────────────────────────────────
 
-function SavedCard({ item, onRemove }: { item: SavedListingRow; onRemove: () => void }) {
-  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
+function SavedCard({
+  item, onPress, onRemove,
+}: {
+  item:     SavedListingRow;
+  onPress:  () => void;
+  onRemove: () => void;
+}) {
+  const cfg      = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.storage;
+  const imageUrl = item.cover_photo_url ?? item.photos?.[0] ?? null;
 
   return (
-    <View style={styles.card}>
-      {/* Image area */}
-      <View style={[styles.cardImg, { backgroundColor: cfg.bg }]}>
-        <Feather name={cfg.icon} size={52} color={cfg.color} />
+    <TouchableOpacity style={c.card} onPress={onPress} activeOpacity={0.9}>
+      <View style={c.imgWrapper}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={c.photo} contentFit="cover" />
+        ) : (
+          <View style={[c.placeholder, { backgroundColor: cfg.bg }]}>
+            <Feather name={cfg.icon} size={30} color={cfg.color} />
+          </View>
+        )}
 
-        <TouchableOpacity
-          style={styles.removeBtn}
-          onPress={onRemove}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Feather name="heart" size={18} color="#FF4444" />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.65)']}
+          locations={[0.38, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        {/* Heart / remove */}
+        <TouchableOpacity style={c.heartBtn} onPress={onRemove} hitSlop={{ top:6, bottom:6, left:6, right:6 }}>
+          <Feather name="heart" size={14} color="#FF4D4F" />
         </TouchableOpacity>
 
         {item.instant_book && (
-          <View style={styles.instantBadge}>
-            <Feather name="zap" size={10} color={Colors.white} />
-            <AppText variant="caption" weight="bold" color={Colors.white} style={{ fontSize: 9, marginLeft: 3 }}>
-              Instant
-            </AppText>
+          <View style={c.instantBadge}>
+            <Feather name="zap" size={9} color={Colors.white} />
+            <AppText style={{ fontSize:9, fontWeight:'800', color:Colors.white, marginLeft:3 }}>Instant</AppText>
           </View>
         )}
-      </View>
 
-      {/* Body */}
-      <View style={styles.cardBody}>
-        <AppText
-          variant="caption"
-          weight="bold"
-          style={{ color: cfg.color, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}
-        >
-          {item.category.replace(/_/g, ' ')}
-        </AppText>
-
-        <AppText variant="bodyLg" weight="bold" numberOfLines={1} style={{ marginBottom: 5 }}>
-          {item.title}
-        </AppText>
-
-        <View style={styles.infoRow}>
-          <Feather name="map-pin" size={11} color={Colors.subtle} />
-          <AppText variant="caption" color={Colors.muted} style={{ marginLeft: 4 }}>
-            {item.city}
+        <View style={c.content}>
+          <AppText numberOfLines={1} style={c.title}>{item.title}</AppText>
+          <AppText style={c.sub}>
+            ₱{item.price.toLocaleString()}
+            <AppText style={c.subUnit}>/{item.price_unit}</AppText>
           </AppText>
-        </View>
-
-        {item.host_is_verified && (
-          <View style={[styles.infoRow, { marginTop: Spacing.xs }]}>
-            <View style={styles.verifiedBadge}>
-              <Feather name="check" size={9} color={Colors.teal} />
-              <AppText variant="caption" weight="bold" color={Colors.teal} style={{ marginLeft: 3 }}>
-                ID Verified
+          <View style={c.bottom}>
+            <View style={c.ratingRow}>
+              <Feather name="star" size={10} color="#FFD700" />
+              <AppText style={c.ratingText}>
+                {item.avg_rating > 0 ? item.avg_rating.toFixed(1) : 'New'}
               </AppText>
+              {item.review_count > 0 && (
+                <AppText style={c.reviewCount}>· {item.review_count}</AppText>
+              )}
             </View>
-            <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 6 }}>
-              by {item.host_name}
-            </AppText>
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View>
-            <View style={styles.priceRow}>
-              <AppText variant="h3" weight="extrabold">₱{Number(item.price).toLocaleString()}</AppText>
-              <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 3 }}>/ {item.price_unit}</AppText>
+            <View style={c.arrowBtn}>
+              <Feather name="arrow-right" size={12} color="#000" />
             </View>
-            {item.avg_rating > 0 && (
-              <View style={styles.ratingRow}>
-                <Feather name="star" size={11} color="#FFB800" />
-                <AppText variant="caption" weight="bold" style={{ marginLeft: 3 }}>{item.avg_rating.toFixed(1)}</AppText>
-                {item.review_count > 0 && (
-                  <AppText variant="caption" color={Colors.subtle} style={{ marginLeft: 2 }}>({item.review_count})</AppText>
-                )}
-              </View>
-            )}
           </View>
-          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85}>
-            <AppText variant="label" weight="bold" color={Colors.white}>Book now</AppText>
-          </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
+
+const c = StyleSheet.create({
+  card:        { borderRadius: Radius.lg, overflow:'hidden', flex:1, backgroundColor:'#000', ...Shadow.md },
+  imgWrapper:  { height: 220, position:'relative' },
+  photo:       { width:'100%', height:'100%' },
+  placeholder: { width:'100%', height:'100%', alignItems:'center', justifyContent:'center' },
+  heartBtn:    { position:'absolute', top:10, right:10, width:30, height:30, borderRadius:15, backgroundColor:'rgba(255,255,255,0.18)', alignItems:'center', justifyContent:'center' },
+  instantBadge:{ position:'absolute', top:10, left:10, flexDirection:'row', alignItems:'center', backgroundColor:Colors.teal, borderRadius:Radius.full, paddingVertical:3, paddingHorizontal:7 },
+  content:     { position:'absolute', bottom:10, left:10, right:10 },
+  title:       { color:'#fff', fontWeight:'bold', fontSize:13, marginBottom:2 },
+  sub:         { color:'rgba(255,255,255,0.9)', fontSize:13, fontWeight:'800', marginBottom:5 },
+  subUnit:     { fontSize:10, fontWeight:'500', color:'rgba(255,255,255,0.6)' },
+  bottom:      { flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
+  ratingRow:   { flexDirection:'row', alignItems:'center', flex:1 },
+  ratingText:  { color:'#fff', fontWeight:'bold', fontSize:11, marginLeft:3 },
+  reviewCount: { color:'rgba(255,255,255,0.65)', fontSize:10, marginLeft:3 },
+  arrowBtn:    { width:24, height:24, borderRadius:12, backgroundColor:'#fff', alignItems:'center', justifyContent:'center' },
+});
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function SavedScreen() {
   const { saved, isLoading, isRefreshing, error, refresh, toggleSave } = useSaved();
+  const { show } = useToast();
+
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+
+  function handleRemove(listingId: string) {
+    toggleSave(listingId);
+    show('Removed from saved', 'unsaved');
+  }
 
   if (isLoading) {
     return (
@@ -154,44 +198,59 @@ export default function SavedScreen() {
           </AppText>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.listContent}
+        <FlatList
+          data={saved}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ gap: CARD_GAP, marginBottom: CARD_GAP }}
+          contentContainerStyle={styles.grid}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={Colors.primary} />}
-        >
-          <View style={styles.infoBanner}>
-            <Feather name="info" size={14} color={Colors.teal} />
-            <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>
-              Tap the heart to remove a listing from your saved collection.
-            </AppText>
-          </View>
-          {saved.map(item => (
-            <SavedCard key={item.id} item={item} onRemove={() => toggleSave(item.listing_id)} />
-          ))}
-        </ScrollView>
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={Colors.primary} />
+          }
+          ListHeaderComponent={
+            <View style={styles.infoBanner}>
+              <Feather name="info" size={14} color={Colors.teal} />
+              <AppText variant="caption" color={Colors.teal} style={{ marginLeft: 8, flex: 1 }}>
+                Tap the heart to remove a listing from your saved collection.
+              </AppText>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={{ flex: 1 }}>
+              <SavedCard
+                item={item}
+                onPress={() => setSelectedListing(toListingShape(item))}
+                onRemove={() => handleRemove(item.listing_id)}
+              />
+            </View>
+          )}
+        />
       )}
+
+      <ListingDetailSheet
+        listing={selectedListing}
+        saved={selectedListing ? true : false}
+        onSave={() => {
+          if (!selectedListing) return;
+          toggleSave(selectedListing.id);
+          show('Removed from saved', 'unsaved');
+          setSelectedListing(null);
+        }}
+        onClose={() => setSelectedListing(null)}
+        onBook={() => setSelectedListing(null)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg },
-  header: { backgroundColor: Colors.white, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  retryBtn: { marginTop: Spacing.lg, paddingVertical: 10, paddingHorizontal: 24, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.primary },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  emptyIconWrap: { width: 72, height: 72, borderRadius: 20, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.border },
-  listContent: { padding: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing['5xl'] },
-  infoBanner: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.tealLight, borderRadius: Radius.md, padding: Spacing.md },
-  card: { backgroundColor: Colors.white, borderRadius: Radius.lg, overflow: 'hidden', ...Shadow.md },
-  cardImg: { height: 160, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  removeBtn: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', ...Shadow.sm },
-  instantBadge: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.teal, borderRadius: Radius.full, paddingVertical: 4, paddingHorizontal: 8 },
-  cardBody: { padding: Spacing.lg },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.tealLight, borderRadius: Radius.full, paddingVertical: 3, paddingHorizontal: 8 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: Spacing.sm },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  bookBtn: { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 10, paddingHorizontal: 20 },
+  safe:         { flex: 1, backgroundColor: Colors.bg },
+  header:       { backgroundColor: Colors.white, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  centerState:  { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  retryBtn:     { marginTop: Spacing.lg, paddingVertical: 10, paddingHorizontal: 24, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.primary },
+  emptyState:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  emptyIconWrap:{ width: 72, height: 72, borderRadius: 20, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.border },
+  infoBanner:   { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.tealLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md },
+  grid:         { paddingHorizontal: SIDE_PAD, paddingTop: Spacing.md, paddingBottom: Spacing['5xl'] },
 });
