@@ -4,7 +4,7 @@ import {
   TextInput, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { AppText }            from '@/components/ui/AppText';
@@ -47,6 +47,7 @@ function sortListings(listings: ListingRow[], sort: SortOption): ListingRow[] {
 
 export default function AllListingsScreen() {
   const router = useRouter();
+  const { host: hostId, hostName: hostNameParam } = useLocalSearchParams<{ host?: string; hostName?: string }>();
 
   const [search,        setSearch]        = useState('');
   const [category,      setCategory]      = useState<Category>('all');
@@ -61,11 +62,12 @@ export default function AllListingsScreen() {
   const filters = useMemo(() => ({
     category: mapUiCategoryToDb(category) as any,
     search,
-    radiusKm,
-    userLat: USER_LAT,
-    userLng: USER_LNG,
-    sortBy: 'distance' as const,
-  }), [category, search, radiusKm]);
+    radiusKm:  hostId ? undefined : radiusKm,
+    userLat:   hostId ? undefined : USER_LAT,
+    userLng:   hostId ? undefined : USER_LNG,
+    sortBy:   (hostId ? 'avg_rating' : 'distance') as any,
+    hostId,
+  }), [category, search, radiusKm, hostId]);
 
   const { listings, isLoading, error } = useListings(filters);
   const filtered = useMemo(() => sortListings(listings, sort), [listings, sort]);
@@ -85,15 +87,22 @@ export default function AllListingsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.75}>
           <Feather name="arrow-left" size={20} color={Colors.ink} />
         </TouchableOpacity>
-        <AppText variant="h3" weight="extrabold" style={{ flex:1, marginLeft:Spacing.sm }}>
-          All listings
-        </AppText>
-        <TouchableOpacity style={s.filterIconBtn} onPress={() => {
-          setPendingRadius(radiusKm); setPendingCategory(category);
-          setFilterVisible(true);
-        }}>
-          <Feather name="sliders" size={17} color={Colors.ink} />
-        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: Spacing.sm }}>
+          <AppText variant="h3" weight="extrabold">
+            {hostId ? `${hostNameParam ?? 'Host'}'s listings` : 'All listings'}
+          </AppText>
+          {hostId && (
+            <AppText variant="caption" color={Colors.muted}>Active listings only</AppText>
+          )}
+        </View>
+        {!hostId && (
+          <TouchableOpacity style={s.filterIconBtn} onPress={() => {
+            setPendingRadius(radiusKm); setPendingCategory(category);
+            setFilterVisible(true);
+          }}>
+            <Feather name="sliders" size={17} color={Colors.ink} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={s.searchWrap}>
@@ -118,29 +127,31 @@ export default function AllListingsScreen() {
         <CategoryPills active={category} onChange={setCategory} />
       </View>
 
-      <View style={s.sortWrap}>
-        {SORT_OPTIONS.map(opt => (
-          <TouchableOpacity
-            key={opt}
-            style={[s.sortChip, sort === opt && s.sortChipActive]}
-            onPress={() => setSort(opt)}
-            activeOpacity={0.8}
-          >
-            <AppText
-              variant="caption"
-              weight="bold"
-              color={sort === opt ? Colors.white : Colors.muted}
+      {!hostId && (
+        <View style={s.sortWrap}>
+          {SORT_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt}
+              style={[s.sortChip, sort === opt && s.sortChipActive]}
+              onPress={() => setSort(opt)}
+              activeOpacity={0.8}
             >
-              {opt}
-            </AppText>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <AppText
+                variant="caption"
+                weight="bold"
+                color={sort === opt ? Colors.white : Colors.muted}
+              >
+                {opt}
+              </AppText>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={s.countRow}>
         <AppText variant="caption" color={Colors.muted}>
           <AppText variant="caption" weight="bold" color={Colors.ink}>{filtered.length}</AppText>
-          {' '}spaces within {radiusKm} km
+          {hostId ? ' active listings' : ` spaces within ${radiusKm} km`}
         </AppText>
       </View>
 

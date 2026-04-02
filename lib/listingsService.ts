@@ -12,6 +12,7 @@ export interface ListingFilters {
   sortDir?:   'asc' | 'desc';
   limit?:     number;
   offset?:    number;
+  hostId?:    string;
 }
 
 export interface ListingRow {
@@ -68,13 +69,14 @@ async function enrichWithHosts(listings: any[]): Promise<ListingRow[]> {
 }
 
 export async function fetchListings(filters: ListingFilters = {}): Promise<{ data: ListingRow[] | null; error: any }> {
-  const { category, search, radiusKm, userLat, userLng, sortBy = 'created_at', sortDir = 'desc', limit = 60, offset = 0 } = filters;
+  const { category, search, radiusKm, userLat, userLng, sortBy = 'created_at', sortDir = 'desc', limit = 60, offset = 0, hostId } = filters;
   try {
     let query = supabase
       .from('listings')
       .select('id,host_id,category,title,description,address,city,barangay,lat,lng,price,price_unit,deposit,instant_book,amenities,cover_photo_url,photos,review_count,avg_rating,total_bookings,status,is_featured,created_at')
       .eq('status', 'active');
-    if (category && category !== 'all') query = query.eq('category', category);
+    if (hostId)                           query = query.eq('host_id', hostId);
+    if (category && category !== 'all')   query = query.eq('category', category);
     if (search && search.trim().length > 0) query = query.or(`title.ilike.%${search.trim()}%,address.ilike.%${search.trim()}%,city.ilike.%${search.trim()}%`);
     if (sortBy !== 'distance') query = query.order(sortBy, { ascending: sortDir === 'asc' });
     else query = query.order('created_at', { ascending: false });
@@ -149,6 +151,62 @@ export async function fetchHostListings(hostId: string) {
       .eq('host_id', hostId)
       .neq('status', 'deleted')
       .order('created_at', { ascending: false });
+    return { data: data ?? [], error };
+  } catch (e: any) { return { data: [], error: { message: e?.message } }; }
+}
+
+// ─── Host profile queries ─────────────────────────────────────────────────────
+
+export async function fetchHostProfile(hostId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,full_name,avatar_url,is_verified,host_rating,host_review_count,total_listings,default_city,phone,created_at,bio')
+      .eq('id', hostId)
+      .single();
+    return { data, error };
+  } catch (e: any) { return { data: null, error: { message: e?.message } }; }
+}
+
+export async function fetchHostProfileReviews(hostId: string, limit = 10) {
+  try {
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('id,reviewer_id,rating,comment,created_at,listing_id')
+      .eq('reviewee_id', hostId)
+      .eq('review_type', 'renter_to_host')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !reviews || reviews.length === 0) return { data: [], error };
+
+    const reviewerIds = [...new Set(reviews.map(r => r.reviewer_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id,full_name,avatar_url,default_city')
+      .in('id', reviewerIds);
+
+    const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]));
+    const enriched = reviews.map(r => ({
+      ...r,
+      reviewer_name:       profileMap[r.reviewer_id]?.full_name    ?? 'Renter',
+      reviewer_avatar_url: profileMap[r.reviewer_id]?.avatar_url   ?? null,
+      reviewer_city:       profileMap[r.reviewer_id]?.default_city ?? null,
+    }));
+    return { data: enriched, error: null };
+  } catch (e: any) { return { data: [], error: { message: e?.message } }; }
+}
+
+export async function fetchPublicHostListings(hostId: string, limit = 8) {
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id,category,title,price,price_unit,avg_rating,review_count,cover_photo_url,photos,address,city,lat,lng,description,amenities,instant_book')
+      .eq('host_id', hostId)
+      .eq('status', 'active')
+      .order('avg_rating', { ascending: false })
+      .limit(limit);
     return { data: data ?? [], error };
   } catch (e: any) { return { data: [], error: { message: e?.message } }; }
 }
