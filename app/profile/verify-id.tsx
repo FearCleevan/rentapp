@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, Modal, FlatList,
@@ -24,7 +24,7 @@ interface IdType {
 }
 
 const ID_TYPES: IdType[] = [
-  { id: 'philsys',         label: 'PhilSys (National ID)',  requiresBack: false },
+  { id: 'philsys',         label: 'PhilSys (National ID)',  requiresBack: true },
   { id: 'passport',        label: 'Passport',               requiresBack: false },
   { id: 'drivers_license', label: "Driver's License",       requiresBack: true  },
   { id: 'umid',            label: 'UMID Card',              requiresBack: true  },
@@ -63,6 +63,12 @@ export default function VerifyIDScreen() {
 
   // Upload progress
   const [uploading, setUploading] = useState<'front' | 'back' | 'selfie' | 'submit' | null>(null);
+
+  // Seed previews from profile so images are visible when the screen is (re-)opened
+  useEffect(() => {
+    if (profile?.gov_id_url        && !frontPreview)  setFrontPreview(profile.gov_id_url);
+    if (profile?.gov_id_selfie_url && !selfiePreview) setSelfiePreview(profile.gov_id_selfie_url);
+  }, [profile?.gov_id_url, profile?.gov_id_selfie_url]);
 
   const status       = (profile?.id_verification_status ?? 'none') as VerifStatus;
   const cfg          = STATUS_CONFIG[status];
@@ -103,18 +109,21 @@ export default function VerifyIDScreen() {
     if (!user) return;
     setUploading(slot);
 
-    const { error } = await uploadGovId(user.id, uri, slot);
-    setUploading(null);
+    try {
+      const { error } = await uploadGovId(user.id, uri, slot);
 
-    if (error) {
-      // Revert preview on failure
-      if (slot === 'front')  setFrontPreview(null);
-      if (slot === 'back')   setBackPreview(null);
-      if (slot === 'selfie') setSelfiePreview(null);
-      toast.show('Upload failed. Please try again.', 'error');
-    } else {
-      toast.show('Image saved!', 'success');
-      refresh();
+      if (error) {
+        // Revert preview on failure
+        if (slot === 'front')  setFrontPreview(null);
+        if (slot === 'back')   setBackPreview(null);
+        if (slot === 'selfie') setSelfiePreview(null);
+        toast.show('Upload failed. Please try again.', 'error');
+      } else {
+        toast.show('Image saved!', 'success');
+        refresh();
+      }
+    } finally {
+      setUploading(null);
     }
   }
 
@@ -210,6 +219,39 @@ export default function VerifyIDScreen() {
               <AppText variant="body" color={Colors.muted} style={{ marginTop: Spacing.xs }}>
                 Your ID could not be verified. Please re-upload clear, unobstructed photos. Make sure all details are readable and there is no glare.
               </AppText>
+
+              {/* ── Show previously submitted images so the user can see what was rejected ── */}
+              {(profile?.gov_id_url || profile?.gov_id_selfie_url) && (
+                <View style={styles.prevSubmission}>
+                  <AppText variant="caption" weight="semibold" color={Colors.muted} style={{ marginBottom: Spacing.sm }}>
+                    PREVIOUSLY SUBMITTED
+                  </AppText>
+                  <View style={styles.prevRow}>
+                    {profile?.gov_id_url && (
+                      <View style={styles.prevThumb}>
+                        <Image
+                          source={{ uri: profile.gov_id_url }}
+                          style={styles.prevImg}
+                          contentFit="cover"
+                          cachePolicy="none"
+                        />
+                        <AppText variant="caption" color={Colors.muted} center style={{ marginTop: 4 }}>ID Front</AppText>
+                      </View>
+                    )}
+                    {profile?.gov_id_selfie_url && (
+                      <View style={styles.prevThumb}>
+                        <Image
+                          source={{ uri: profile.gov_id_selfie_url }}
+                          style={styles.prevImg}
+                          contentFit="cover"
+                          cachePolicy="none"
+                        />
+                        <AppText variant="caption" color={Colors.muted} center style={{ marginTop: 4 }}>Selfie</AppText>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
             </View>
           )}
 
@@ -616,6 +658,26 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.xl,
+  },
+  prevSubmission: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.errorLight,
+  },
+  prevRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  prevThumb: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  prevImg: {
+    width: '100%',
+    aspectRatio: 1.6,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.border,
   },
   stepLabel: {
     letterSpacing: 0.8,

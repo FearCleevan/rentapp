@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
@@ -90,6 +91,7 @@ function MetaPill({ icon, value }: { icon: string; value: string }) {
 export default function ListingsScreen() {
   const user    = useAuthStore(s => s.user);
   const router  = useRouter();
+  const insets  = useSafeAreaInsets();
 
   const [listings,  setListings]  = useState<HostListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,7 +147,7 @@ export default function ListingsScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: Spacing.xl + insets.bottom }]}
         onPress={() => router.push('/listings/create')}
         activeOpacity={0.85}
       >
